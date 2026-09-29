@@ -165,14 +165,14 @@ export default function LancarPage() {
         <Painel>
           <div className="grid gap-4 sm:grid-cols-[180px_1fr]">
             <Campo rotulo="Data"><Texto type="date" value={data} onChange={(e) => setData(e.target.value)} /></Campo>
-            <Campo rotulo="Oficina">
+            <Campo grupo rotulo="Oficina">
               <Pilulas rotulo="Oficina" valor={oficinaId} onChange={(v) => { setOficinaId(v); setValorManual(null); }}
                 opcoes={opcoesOficina.map((o) => ({ valor: o.id, rotulo: o.nome }))} />
             </Campo>
           </div>
 
           <div className="mt-4">
-            <Campo rotulo="Operação">
+            <Campo grupo rotulo="Operação">
               <Pilulas rotulo="Operação" valor={operacao} onChange={(v) => { setOperacao(v); setValorManual(null); }}
                 opcoes={[{ valor: 'Costura', rotulo: 'Costura' }, { valor: 'Corte', rotulo: 'Corte' }]} />
             </Campo>
@@ -181,7 +181,7 @@ export default function LancarPage() {
           {operacao === 'Costura' ? (
             <>
               <div className="mt-5">
-                <Campo rotulo="Modelo">
+                <Campo grupo rotulo="Modelo">
                   <BuscaModelo modelos={modelos} valor={modelo} onEscolher={(m) => { setModelo(m); setValorManual(null); }} recentes={recentes} />
                 </Campo>
               </div>
@@ -203,7 +203,7 @@ export default function LancarPage() {
             </>
           ) : (
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <Campo rotulo="Tipo cortado">
+              <Campo grupo rotulo="Tipo cortado">
                 <Pilulas rotulo="Tipo" valor={tipoCorte} onChange={(v) => { setTipoCorte(v); setValorManual(null); }}
                   opcoes={TIPOS.map((t) => ({ valor: t, rotulo: t }))} />
               </Campo>

@@ -57,7 +57,7 @@ function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; o
     <div className="grid gap-4">
       <div className={compacto ? 'grid grid-cols-2 gap-3' : 'grid gap-4 sm:grid-cols-[180px_1fr]'}>
         <Campo rotulo="Data"><Texto type="date" value={data} onChange={(e) => setData(e.target.value)} /></Campo>
-        <Campo rotulo="Oficina">
+        <Campo grupo rotulo="Oficina">
           {compacto ? (
             <Selecao value={oficinaId} onChange={(e) => setOficinaId(e.target.value)}>
               {ativas.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
@@ -68,7 +68,7 @@ function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; o
         </Campo>
       </div>
       {precificacaoPronta && (
-        <Campo rotulo="Tipo" dica={tipo === 'ajuste' ? 'Acerta o saldo sem ser dinheiro pago. Não entra no total pago nem no prazo de pagamento.' : undefined}>
+        <Campo grupo rotulo="Tipo" dica={tipo === 'ajuste' ? 'Acerta o saldo sem ser dinheiro pago. Não entra no total pago nem no prazo de pagamento.' : undefined}>
           <Pilulas rotulo="Tipo" valor={tipo} onChange={setTipo} opcoes={[{ valor: 'pagamento', rotulo: 'Pagamento' }, { valor: 'ajuste', rotulo: 'Ajuste de saldo' }]} />
         </Campo>
       )}

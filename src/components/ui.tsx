@@ -24,13 +24,18 @@ export function Botao({ variante = 'primario', className, ...p }: ButtonHTMLAttr
 }
 
 // ---------------- Campos ----------------------------------------------
-export function Campo({ rotulo, dica, children, className }: { rotulo: string; dica?: ReactNode; children: ReactNode; className?: string }) {
+/**
+ * Rótulo + campo. Para grupos de botões (pílulas, busca com lista), use `grupo`: um <label> em volta de botões
+ * repassa o clique para o primeiro botão quando o botão clicado some da tela, desfazendo a escolha.
+ */
+export function Campo({ rotulo, dica, children, className, grupo }: { rotulo: string; dica?: ReactNode; children: ReactNode; className?: string; grupo?: boolean }) {
+  const Tag = grupo ? 'div' : 'label';
   return (
-    <label className={cx('block', className)}>
+    <Tag className={cx('block', className)} {...(grupo ? { role: 'group', 'aria-label': rotulo } : {})}>
       <span className="mb-1.5 block text-[13px] font-semibold text-linha">{rotulo}</span>
       {children}
       {dica && <span className="mt-1 block text-xs text-linha">{dica}</span>}
-    </label>
+    </Tag>
   );
 }
 

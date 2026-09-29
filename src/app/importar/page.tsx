@@ -75,7 +75,7 @@ export default function ImportarPage() {
 
       <Painel className="mb-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <Campo rotulo="O que você vai importar?">
+          <Campo grupo rotulo="O que você vai importar?">
             <Pilulas rotulo="Tipo de importação" valor={tipo} onChange={(t) => { setTipo(t); if (arq) setAba(abaSugerida(arq, t)); }}
               opcoes={(Object.keys(ROTULOS) as TipoImport[]).map((t) => ({ valor: t, rotulo: ROTULOS[t] }))} />
           </Campo>
