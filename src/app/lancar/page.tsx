@@ -89,7 +89,10 @@ export default function LancarPage() {
   useEffect(() => {
     try { lote.length ? localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(lote)) : localStorage.removeItem(CHAVE_RASCUNHO); } catch { /* ignora */ }
   }, [lote]);
-  useEffect(() => { if (!oficinaId && ativas.length) setOficinaId(ativas[0].id); }, [ativas, oficinaId]);
+  const opcoesOficina = ativas.filter((o) => (operacao === 'Corte' ? o.faz_corte : o.faz_costura));
+  useEffect(() => {
+    if (opcoesOficina.length && !opcoesOficina.some((o) => o.id === oficinaId)) setOficinaId(opcoesOficina[0].id);
+  }, [opcoesOficina, oficinaId]);
 
   const preco = useMemo(() => {
     if (!oficinaId) return null;
@@ -164,7 +167,7 @@ export default function LancarPage() {
             <Campo rotulo="Data"><Texto type="date" value={data} onChange={(e) => setData(e.target.value)} /></Campo>
             <Campo rotulo="Oficina">
               <Pilulas rotulo="Oficina" valor={oficinaId} onChange={(v) => { setOficinaId(v); setValorManual(null); }}
-                opcoes={ativas.map((o) => ({ valor: o.id, rotulo: o.nome }))} />
+                opcoes={opcoesOficina.map((o) => ({ valor: o.id, rotulo: o.nome }))} />
             </Campo>
           </div>
 

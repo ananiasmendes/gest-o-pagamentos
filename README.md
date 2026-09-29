@@ -20,6 +20,12 @@ Tecnologia: Next.js 14, TypeScript, Tailwind CSS e Supabase.
 
 **Oficinas e modelos.** Cadastro, desativação e junção de modelos duplicados.
 
+**Cortes.** Cria cada corte a partir do PDF do risco do Audaces (modelos, grade por folha e medidas são lidos sozinhos). Você escolhe a oficina de cada modelo, as cores e folhas, e quem corta. O sistema calcula as peças, o material para comprar (arredondado para a embalagem de cada insumo), as tags (3 por folha) e as etiquetas de composição (5 por folha), gera um PDF único de pedido de material e etiquetas com caixinhas para marcar, e o romaneio de cada oficina. Ao marcar o corte como cortado por um cortador parceiro, o pagamento do corte é lançado em Entradas. As entradas de costura vão abatendo o que falta voltar de cada corte.
+
+**Ficha técnica.** Consumo de cada insumo por peça de cada modelo.
+
+**Insumos e cores.** Como cada insumo é comprado (rolo de quantos metros, pacote de quantos pares, de meio em meio quilo…) e as cores de tecido.
+
 **Importar.** Recebe entradas, pagamentos ou preços de um arquivo .xlsx ou .csv. Mostra uma prévia com erros e possíveis duplicatas antes de gravar e oferece uma planilha modelo para baixar.
 
 ### Regra de preço
@@ -73,6 +79,16 @@ Abra o link da Vercel no celular:
 - No iPhone (Safari): **Compartilhar › Adicionar à Tela de Início**.
 - No Android (Chrome): menu **⋮ › Instalar app**.
 
+## Atualização: módulo de cortes
+
+Para quem já está com o sistema no ar:
+
+1. **Banco:** no Supabase, abra **SQL Editor › New query**, cole `supabase/cortes.sql` e clique em **Run**. Depois, numa nova query, cole `supabase/cortes_seed.sql` e rode. O primeiro cria as tabelas; o segundo carrega as 9 cores, os 32 insumos com as regras de compra e a ficha técnica dos 68 modelos da planilha. Os dois podem ser rodados de novo sem duplicar nada.
+2. **Código:** no GitHub, abra o repositório, clique em **Add file › Upload files**, arraste de novo **todo o conteúdo** desta pasta e clique em **Commit changes**. Os arquivos com o mesmo nome são substituídos.
+3. A Vercel publica sozinha em 1 a 3 minutos.
+
+Se o site abrir a aba Cortes com o aviso "Falta criar as tabelas de cortes no banco", é porque o passo 1 ainda não foi feito.
+
 ## Segurança
 
 Só quem sabe o PIN acessa o sistema. As tabelas têm Row Level Security: sem login, o banco não entrega nem aceita nada, mesmo que alguém descubra a chave anon, que é pública por natureza.
@@ -86,9 +102,12 @@ Para dar acesso a outra pessoa com um PIN próprio, crie outro usuário. Na tela
 ```
 supabase/schema.sql    tabelas, regra de preço vigente, gatilho e segurança
 supabase/seed.sql      dados vindos da planilha (nomes já padronizados)
+supabase/cortes.sql    tabelas do módulo de cortes
+supabase/cortes_seed.sql  cores, insumos e ficha técnica da planilha de corte
 src/app/               uma pasta por tela
 src/components/        interface: casca do app, filtros, formulários
 src/lib/kpis.ts        cálculo dos indicadores e do prazo médio de pagamento
 src/lib/importer.ts    leitura, validação e gravação das importações
 src/lib/precos.ts      busca do preço vigente em uma data
+src/lib/cortes/        leitura do risco, cálculos do corte e PDFs
 ```

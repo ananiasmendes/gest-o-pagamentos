@@ -2,28 +2,42 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { supabase } from './supabase';
-import type { Entrada, Modelo, Oficina, Pagamento, Preco } from './types';
+import type {
+  Cor, Corte, CorteCor, CorteItem, CorteModelo, Entrada, FichaItem, Insumo, Modelo, Oficina, Pagamento, Preco,
+} from './types';
 
-type Tabela = 'oficinas' | 'modelos' | 'precos' | 'entradas' | 'pagamentos';
+export type Tabela =
+  | 'oficinas' | 'modelos' | 'precos' | 'entradas' | 'pagamentos'
+  | 'cores' | 'insumos' | 'ficha_tecnica' | 'cortes' | 'corte_modelos' | 'corte_cores' | 'corte_itens';
+
+const TABELAS_PAGAMENTO: Tabela[] = ['oficinas', 'modelos', 'precos', 'entradas', 'pagamentos'];
+const TABELAS_CORTE: Tabela[] = ['cores', 'insumos', 'ficha_tecnica', 'cortes', 'corte_modelos', 'corte_cores', 'corte_itens'];
+export const TABELAS_DO_CORTE: Tabela[] = ['cortes', 'corte_modelos', 'corte_cores', 'corte_itens'];
 
 interface Dados {
   oficinas: Oficina[]; modelos: Modelo[]; precos: Preco[]; entradas: Entrada[]; pagamentos: Pagamento[];
+  cores: Cor[]; insumos: Insumo[]; ficha: FichaItem[];
+  cortes: Corte[]; corteModelos: CorteModelo[]; corteCores: CorteCor[]; corteItens: CorteItem[];
 }
 
 interface Ctx extends Dados {
   carregando: boolean;
   erro: string | null;
+  /** falso enquanto o cortes.sql ainda não foi rodado no Supabase */
+  cortesProntos: boolean;
   recarregar: (tabelas?: Tabela[]) => Promise<void>;
   oficina: (id: string) => Oficina | undefined;
   modelo: (id: string | null) => Modelo | undefined;
-  nomeOficina: (id: string) => string;
+  nomeOficina: (id: string | null) => string;
   nomeModelo: (e: { modelo_id: string | null; operacao: string; tipo: string }) => string;
 }
 
 const DataCtx = createContext<Ctx | null>(null);
 
-const ORDEM: Record<Tabela, string> = {
-  oficinas: 'nome', modelos: 'nome', precos: 'vigente_desde', entradas: 'data', pagamentos: 'data',
+const ORDEM: Record<Tabela, string[]> = {
+  oficinas: ['nome', 'id'], modelos: ['nome', 'id'], precos: ['vigente_desde', 'id'], entradas: ['data', 'id'], pagamentos: ['data', 'id'],
+  cores: ['nome', 'id'], insumos: ['nome', 'id'], ficha_tecnica: ['modelo_id', 'insumo_id'],
+  cortes: ['numero'], corte_modelos: ['corte_id', 'ordem', 'id'], corte_cores: ['corte_id', 'ordem', 'id'], corte_itens: ['corte_id', 'chave'],
 };
 
 /** O Supabase devolve no máximo 1000 linhas por vez; aqui buscamos tudo em páginas. */
@@ -31,9 +45,9 @@ async function buscarTudo<T>(tabela: Tabela): Promise<T[]> {
   const passo = 1000;
   const out: T[] = [];
   for (let de = 0; ; de += passo) {
-    const { data, error } = await supabase.from(tabela).select('*')
-      .order(ORDEM[tabela], { ascending: true }).order('id', { ascending: true })
-      .range(de, de + passo - 1);
+    let q = supabase.from(tabela).select('*');
+    for (const col of ORDEM[tabela]) q = q.order(col, { ascending: true });
+    const { data, error } = await q.range(de, de + passo - 1);
     if (error) throw error;
     out.push(...((data ?? []) as T[]));
     if (!data || data.length < passo) break;
@@ -41,27 +55,54 @@ async function buscarTudo<T>(tabela: Tabela): Promise<T[]> {
   return out;
 }
 
+/** Tabela ainda não criada (o cortes.sql não foi rodado). */
+const tabelaInexistente = (e: unknown) => {
+  const err = e as { code?: string; message?: string };
+  return err?.code === '42P01' || err?.code === 'PGRST205' || /does not exist|could not find the table/i.test(err?.message ?? '');
+};
+
 const numeros = <T extends object>(rows: T[], campos: (keyof T)[]) =>
-  rows.map((r) => { const c = { ...r }; for (const k of campos) (c as Record<string, unknown>)[k as string] = Number(c[k] ?? 0); return c; });
+  rows.map((r) => { const c = { ...r }; for (const k of campos) { const v = c[k]; (c as Record<string, unknown>)[k as string] = v === null || v === undefined ? v : Number(v); } return c; });
+
+const VAZIO: Dados = {
+  oficinas: [], modelos: [], precos: [], entradas: [], pagamentos: [],
+  cores: [], insumos: [], ficha: [], cortes: [], corteModelos: [], corteCores: [], corteItens: [],
+};
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [dados, setDados] = useState<Dados>({ oficinas: [], modelos: [], precos: [], entradas: [], pagamentos: [] });
+  const [dados, setDados] = useState<Dados>(VAZIO);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [cortesProntos, setCortesProntos] = useState(true);
 
   const recarregar = useCallback(async (tabelas?: Tabela[]) => {
-    const alvo: Tabela[] = tabelas ?? ['oficinas', 'modelos', 'precos', 'entradas', 'pagamentos'];
+    const alvo: Tabela[] = tabelas ?? [...TABELAS_PAGAMENTO, ...TABELAS_CORTE];
     try {
-      const res = await Promise.all(alvo.map((t) => buscarTudo<Record<string, unknown>>(t)));
+      const res = await Promise.all(alvo.map(async (t) => {
+        try { return await buscarTudo<Record<string, unknown>>(t); }
+        catch (e) {
+          if (TABELAS_CORTE.includes(t) && tabelaInexistente(e)) { setCortesProntos(false); return []; }
+          throw e;
+        }
+      }));
       setDados((d) => {
-        const n = { ...d } as Dados;
+        const n = { ...d };
         alvo.forEach((t, i) => {
-          const rows = res[i];
-          if (t === 'precos') n.precos = numeros(rows as unknown as Preco[], ['valor']);
-          else if (t === 'entradas') n.entradas = numeros(rows as unknown as Entrada[], ['quantidade', 'valor_unitario', 'valor_total']);
-          else if (t === 'pagamentos') n.pagamentos = numeros(rows as unknown as Pagamento[], ['valor']);
-          else if (t === 'oficinas') n.oficinas = rows as unknown as Oficina[];
-          else n.modelos = rows as unknown as Modelo[];
+          const rows = res[i] as unknown[];
+          switch (t) {
+            case 'precos': n.precos = numeros(rows as Preco[], ['valor']); break;
+            case 'entradas': n.entradas = numeros(rows as Entrada[], ['quantidade', 'valor_unitario', 'valor_total']); break;
+            case 'pagamentos': n.pagamentos = numeros(rows as Pagamento[], ['valor']); break;
+            case 'oficinas': n.oficinas = (rows as Oficina[]).map((o) => ({ ...o, faz_costura: o.faz_costura ?? true, faz_corte: o.faz_corte ?? false })); break;
+            case 'modelos': n.modelos = rows as Modelo[]; break;
+            case 'cores': n.cores = rows as Cor[]; break;
+            case 'insumos': n.insumos = numeros(rows as Insumo[], ['fator', 'multiplo']); break;
+            case 'ficha_tecnica': n.ficha = numeros(rows as FichaItem[], ['consumo']); break;
+            case 'cortes': n.cortes = numeros(rows as Corte[], ['comprimento_m', 'largura_m', 'gramatura_kg_m2', 'aproveitamento']); break;
+            case 'corte_modelos': n.corteModelos = rows as CorteModelo[]; break;
+            case 'corte_cores': n.corteCores = rows as CorteCor[]; break;
+            case 'corte_itens': n.corteItens = rows as CorteItem[]; break;
+          }
         });
         return n;
       });
@@ -79,13 +120,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ofi = new Map(dados.oficinas.map((o) => [o.id, o]));
     const mod = new Map(dados.modelos.map((m) => [m.id, m]));
     return {
-      ...dados, carregando, erro, recarregar,
+      ...dados, carregando, erro, cortesProntos, recarregar,
       oficina: (id) => ofi.get(id),
       modelo: (id) => (id ? mod.get(id) : undefined),
-      nomeOficina: (id) => ofi.get(id)?.nome ?? '—',
+      nomeOficina: (id) => (id ? ofi.get(id)?.nome ?? '—' : 'Fábrica'),
       nomeModelo: (e) => (e.operacao === 'Corte' ? `Corte de ${e.tipo.toLowerCase()}` : mod.get(e.modelo_id ?? '')?.nome ?? '—'),
     };
-  }, [dados, carregando, erro, recarregar]);
+  }, [dados, carregando, erro, cortesProntos, recarregar]);
 
   return <DataCtx.Provider value={valor}>{children}</DataCtx.Provider>;
 }
@@ -98,7 +139,7 @@ export function useData() {
 
 /** Cor fixa por oficina (pela ordem alfabética), usada nos gráficos e etiquetas. */
 export const CORES_OFICINA = ['#3D348B', '#B8235A', '#1F7A6A', '#A8671A', '#6D597A', '#2E6FA7'];
-export function corOficina(oficinas: Oficina[], id: string) {
+export function corOficina(oficinas: Oficina[], id: string | null) {
   const i = oficinas.findIndex((o) => o.id === id);
-  return CORES_OFICINA[(i < 0 ? 0 : i) % CORES_OFICINA.length];
+  return i < 0 ? '#6E6887' : CORES_OFICINA[i % CORES_OFICINA.length];
 }

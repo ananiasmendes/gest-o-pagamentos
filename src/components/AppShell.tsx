@@ -6,22 +6,50 @@ import { usePathname } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, PackagePlus, ClipboardList, Wallet, ScrollText, Tags, Users, Upload, MoreHorizontal, LogOut,
+  Scissors, FilePlus2, BookOpen, Boxes,
 } from 'lucide-react';
 import { supabase, supabaseConfigurado, LOGIN_EMAIL, mensagemErro } from '@/lib/supabase';
 import { DataProvider, useData } from '@/lib/data';
 import { AvisosProvider, Botao, Campo, Texto, Modal, cx } from './ui';
 
-const NAV = [
-  { href: '/', rotulo: 'Painel', icone: LayoutDashboard },
-  { href: '/lancar', rotulo: 'Lançar', icone: PackagePlus },
-  { href: '/entradas', rotulo: 'Entradas', icone: ClipboardList },
-  { href: '/pagamentos', rotulo: 'Pagamentos', icone: Wallet },
-  { href: '/extrato', rotulo: 'Extrato', icone: ScrollText },
-  { href: '/precos', rotulo: 'Preços', icone: Tags },
-  { href: '/cadastros', rotulo: 'Oficinas e modelos', icone: Users },
-  { href: '/importar', rotulo: 'Importar', icone: Upload },
+type ItemNav = { href: string; rotulo: string; icone: typeof LayoutDashboard };
+
+const GRUPOS: { area: 'pagamentos' | 'cortes' | 'geral'; titulo: string; itens: ItemNav[] }[] = [
+  {
+    area: 'pagamentos', titulo: 'Pagamentos',
+    itens: [
+      { href: '/', rotulo: 'Painel', icone: LayoutDashboard },
+      { href: '/lancar', rotulo: 'Lançar', icone: PackagePlus },
+      { href: '/entradas', rotulo: 'Entradas', icone: ClipboardList },
+      { href: '/pagamentos', rotulo: 'Pagamentos', icone: Wallet },
+      { href: '/extrato', rotulo: 'Extrato', icone: ScrollText },
+      { href: '/precos', rotulo: 'Preços', icone: Tags },
+    ],
+  },
+  {
+    area: 'cortes', titulo: 'Cortes',
+    itens: [
+      { href: '/cortes', rotulo: 'Cortes', icone: Scissors },
+      { href: '/cortes/novo', rotulo: 'Novo corte', icone: FilePlus2 },
+      { href: '/ficha', rotulo: 'Ficha técnica', icone: BookOpen },
+      { href: '/insumos', rotulo: 'Insumos e cores', icone: Boxes },
+    ],
+  },
+  {
+    area: 'geral', titulo: 'Cadastros',
+    itens: [
+      { href: '/cadastros', rotulo: 'Oficinas e modelos', icone: Users },
+      { href: '/importar', rotulo: 'Importar', icone: Upload },
+    ],
+  },
 ];
-const NAV_CELULAR = ['/', '/entradas', '/lancar', '/pagamentos'];
+const NAV = GRUPOS.flatMap((g) => g.itens);
+/** Barra inferior do celular: 4 atalhos por área, o do meio em destaque. */
+const NAV_CELULAR = {
+  pagamentos: { itens: ['/', '/entradas', '/lancar', '/pagamentos'], destaque: '/lancar' },
+  cortes: { itens: ['/cortes', '/ficha', '/cortes/novo', '/insumos'], destaque: '/cortes/novo' },
+};
+const areaDe = (path: string) => (/^\/(cortes|ficha|insumos)/.test(path) ? 'cortes' : 'pagamentos');
 
 function Marca() {
   return (
@@ -103,21 +131,35 @@ function ErroCarga() {
 function Navegacao({ children }: { children: ReactNode }) {
   const path = usePathname();
   const [mais, setMais] = useState(false);
-  const ativo = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+  const area = areaDe(path);
+  const ativo = (href: string) => {
+    if (href === '/') return path === '/';
+    if (href === '/cortes') return path === '/cortes' || (path.startsWith('/cortes/') && !path.startsWith('/cortes/novo'));
+    return path.startsWith(href);
+  };
   const sair = () => supabase.auth.signOut();
+  const cel = NAV_CELULAR[area];
+  const itensCel = cel.itens.map((h) => NAV.find((n) => n.href === h)!);
 
   return (
     <div className="min-h-screen md:flex">
       {/* Computador: barra lateral */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-borda bg-tecido px-3 py-5 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-borda bg-tecido px-3 py-5 md:flex">
         <div className="px-3"><Marca /></div>
-        <nav className="mt-8 flex flex-1 flex-col gap-0.5">
-          {NAV.map(({ href, rotulo, icone: I }) => (
-            <Link key={href} href={href}
-              className={cx('flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-semibold transition-colors',
-                ativo(href) ? 'bg-tinta text-white' : 'text-tinta hover:bg-papel')}>
-              <I size={18} strokeWidth={2.2} />{rotulo}
-            </Link>
+        <nav className="mt-6 flex flex-1 flex-col">
+          {GRUPOS.map((g) => (
+            <div key={g.titulo} className="mb-4">
+              <div className="px-3 pb-1.5 text-[12px] font-semibold text-linha">{g.titulo}</div>
+              <div className="flex flex-col gap-0.5">
+                {g.itens.map(({ href, rotulo, icone: I }) => (
+                  <Link key={href} href={href}
+                    className={cx('flex items-center gap-3 rounded-lg px-3 py-2 text-[15px] font-semibold transition-colors',
+                      ativo(href) ? 'bg-tinta text-white' : 'text-tinta hover:bg-papel')}>
+                    <I size={18} strokeWidth={2.2} />{rotulo}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
         <button onClick={sair} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-semibold text-linha hover:bg-papel">
@@ -125,23 +167,32 @@ function Navegacao({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 pb-28 pt-5 md:px-8 md:pb-10 md:pt-8">
+      <main className="min-w-0 flex-1 px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-8">
+        {/* Celular: troca de área */}
+        <div className="mb-4 grid grid-cols-2 rounded-full border border-borda bg-tecido p-1 md:hidden" role="tablist" aria-label="Área">
+          {(['pagamentos', 'cortes'] as const).map((a) => (
+            <Link key={a} href={a === 'pagamentos' ? '/' : '/cortes'} role="tab" aria-selected={area === a}
+              className={cx('rounded-full py-2 text-center text-sm font-semibold', area === a ? 'bg-tinta text-white' : 'text-linha')}>
+              {a === 'pagamentos' ? 'Pagamentos' : 'Cortes'}
+            </Link>
+          ))}
+        </div>
         <div className="mx-auto max-w-6xl"><ErroCarga />{children}</div>
       </main>
 
-      {/* Celular: barra inferior com o botão de lançar no centro */}
+      {/* Celular: barra inferior com o botão principal no centro */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-borda bg-tecido/95 backdrop-blur md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-5 items-end px-2 pt-1.5">
-          {NAV.filter((n) => NAV_CELULAR.includes(n.href)).map(({ href, rotulo, icone: I }) =>
-            href === '/lancar' ? (
-              <Link key={href} href={href} aria-label="Lançar entrada" className="flex flex-col items-center pb-2">
+          {itensCel.map(({ href, rotulo, icone: I }) =>
+            href === cel.destaque ? (
+              <Link key={href} href={href} aria-label={rotulo} className="flex flex-col items-center pb-2">
                 <span className={cx('-mt-5 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg',
                   ativo(href) ? 'bg-framboesa-escuro' : 'bg-framboesa')}><I size={26} /></span>
-                <span className="mt-0.5 text-[11px] font-semibold">{rotulo}</span>
+                <span className="mt-0.5 text-[11px] font-semibold">{area === 'cortes' ? 'Novo' : rotulo}</span>
               </Link>
             ) : (
               <Link key={href} href={href} className={cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold', ativo(href) ? 'text-framboesa' : 'text-linha')}>
-                <I size={22} strokeWidth={ativo(href) ? 2.4 : 2} />{rotulo}
+                <I size={22} strokeWidth={ativo(href) ? 2.4 : 2} />{rotulo.split(' ')[0]}
               </Link>
             ))}
           <button onClick={() => setMais(true)} className="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold text-linha">
@@ -151,14 +202,23 @@ function Navegacao({ children }: { children: ReactNode }) {
       </nav>
 
       <Modal aberto={mais} titulo="Mais opções" onFechar={() => setMais(false)}>
-        <div className="grid gap-1">
-          {NAV.filter((n) => !NAV_CELULAR.includes(n.href)).map(({ href, rotulo, icone: I }) => (
-            <Link key={href} href={href} onClick={() => setMais(false)}
-              className="flex items-center gap-3 rounded-lg px-3 py-3.5 text-base font-semibold hover:bg-papel">
-              <I size={20} />{rotulo}
-            </Link>
-          ))}
-          <button onClick={sair} className="flex items-center gap-3 rounded-lg px-3 py-3.5 text-base font-semibold text-linha hover:bg-papel">
+        <div className="grid gap-4">
+          {GRUPOS.map((g) => {
+            const resto = g.itens.filter((n) => !cel.itens.includes(n.href));
+            if (!resto.length) return null;
+            return (
+              <div key={g.titulo}>
+                <div className="px-3 pb-1 text-[12px] font-semibold text-linha">{g.titulo}</div>
+                {resto.map(({ href, rotulo, icone: I }) => (
+                  <Link key={href} href={href} onClick={() => setMais(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-3 text-base font-semibold hover:bg-papel">
+                    <I size={20} />{rotulo}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
+          <button onClick={sair} className="flex items-center gap-3 rounded-lg px-3 py-3 text-base font-semibold text-linha hover:bg-papel">
             <LogOut size={20} />Sair
           </button>
         </div>

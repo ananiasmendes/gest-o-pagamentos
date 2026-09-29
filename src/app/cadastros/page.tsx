@@ -11,9 +11,9 @@ import { Botao, Cabecalho, Campo, Carregando, Modal, Painel, Selecao, Texto, cx,
 type EdicaoModelo = { id?: string; nome: string; tipo: Tipo; codigo: string; ativo: boolean };
 
 export default function CadastrosPage() {
-  const { oficinas, modelos, entradas, carregando, recarregar } = useData();
+  const { oficinas, modelos, entradas, carregando, recarregar, cortesProntos } = useData();
   const avisar = useAviso();
-  const [oficinaEd, setOficinaEd] = useState<{ id?: string; nome: string; ativa: boolean } | null>(null);
+  const [oficinaEd, setOficinaEd] = useState<{ id?: string; nome: string; ativa: boolean; faz_costura: boolean; faz_corte: boolean } | null>(null);
   const [modeloEd, setModeloEd] = useState<EdicaoModelo | null>(null);
   const [busca, setBusca] = useState('');
   const [juntar, setJuntar] = useState<{ de: string; para: string } | null>(null);
@@ -37,12 +37,13 @@ export default function CadastrosPage() {
 
   async function salvarOficina() {
     if (!oficinaEd || !oficinaEd.nome.trim()) return;
-    const linha = { nome: oficinaEd.nome.trim(), ativa: oficinaEd.ativa };
+    const linha: Record<string, unknown> = { nome: oficinaEd.nome.trim(), ativa: oficinaEd.ativa };
+    if (cortesProntos) { linha.faz_costura = oficinaEd.faz_costura; linha.faz_corte = oficinaEd.faz_corte; }
     const { error } = oficinaEd.id
       ? await supabase.from('oficinas').update(linha).eq('id', oficinaEd.id)
       : await supabase.from('oficinas').insert(linha);
     if (error) { avisar(mensagemErro(error), 'erro'); return; }
-    avisar(oficinaEd.id ? 'Oficina atualizada.' : `${linha.nome} cadastrada. Agora defina os preços dela.`);
+    avisar(oficinaEd.id ? 'Cadastro atualizado.' : `${linha.nome} cadastrado. Agora defina os preços em Preços.`);
     setOficinaEd(null); recarregar(['oficinas']);
   }
 
@@ -90,7 +91,7 @@ export default function CadastrosPage() {
     <>
       <Cabecalho titulo="Oficinas e modelos" sub="Desative o que não usa mais: some das listas de lançamento, mas o histórico continua." />
       <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-        <Painel titulo="Oficinas" acao={<Botao variante="secundario" className="h-9 px-3 text-sm" onClick={() => setOficinaEd({ nome: '', ativa: true })}><Plus size={16} />Nova</Botao>}>
+        <Painel titulo="Oficinas e cortadores" acao={<Botao variante="secundario" className="h-9 px-3 text-sm" onClick={() => setOficinaEd({ nome: '', ativa: true, faz_costura: true, faz_corte: false })}><Plus size={16} />Novo</Botao>}>
           <ul className="divide-y divide-borda">
             {oficinas.map((o) => (
               <li key={o.id}>
@@ -98,7 +99,10 @@ export default function CadastrosPage() {
                   <span className={cx('font-semibold', !o.ativa && 'text-linha line-through')}>
                     <span className="mr-2 inline-block h-3 w-3 rounded-full align-middle" style={{ background: corOficina(oficinas, o.id) }} />{o.nome}
                   </span>
-                  <span className="text-[13px] text-linha">{num(usoOficina.get(o.id) ?? 0)} lançamentos</span>
+                  <span className="text-right text-[13px] text-linha">
+                    {[o.faz_costura && 'costura', o.faz_corte && 'corte'].filter(Boolean).join(' e ') || 'sem função'}
+                    <span className="block">{num(usoOficina.get(o.id) ?? 0)} lançamentos</span>
+                  </span>
                 </button>
               </li>
             ))}
@@ -128,7 +132,7 @@ export default function CadastrosPage() {
         </Painel>
       </div>
 
-      <Modal aberto={!!oficinaEd} titulo={oficinaEd?.id ? 'Editar oficina' : 'Nova oficina'} onFechar={() => setOficinaEd(null)}
+      <Modal aberto={!!oficinaEd} titulo={oficinaEd?.id ? 'Editar cadastro' : 'Nova oficina ou cortador'} onFechar={() => setOficinaEd(null)}
         rodape={<>
           {oficinaEd?.id && <Botao variante="perigo" onClick={() => excluirOficina(oficinaEd as Oficina)}>Excluir</Botao>}
           <div className="flex-1" /><Botao onClick={salvarOficina}>Salvar</Botao>
@@ -140,6 +144,16 @@ export default function CadastrosPage() {
               <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.ativa} onChange={(e) => setOficinaEd({ ...oficinaEd, ativa: e.target.checked })} />
               Ativa (aparece no lançamento)
             </label>
+            {cortesProntos && (<>
+              <label className="flex items-center gap-3 text-[15px]">
+                <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.faz_costura} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_costura: e.target.checked })} />
+                Faz costura (recebe modelos dos cortes)
+              </label>
+              <label className="flex items-center gap-3 text-[15px]">
+                <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.faz_corte} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_corte: e.target.checked })} />
+                Faz corte (pode ser escolhido como cortador e recebe pelo corte)
+              </label>
+            </>)}
           </div>
         )}
       </Modal>
