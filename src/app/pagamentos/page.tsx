@@ -7,13 +7,14 @@ import { supabase, mensagemErro } from '@/lib/supabase';
 import { brl, dataBR, dec, diaSemana, hoje, parseNumero } from '@/lib/format';
 import { filtrarPagamentos, saldos } from '@/lib/kpis';
 import { baixarPlanilha } from '@/lib/exportar';
-import type { Pagamento } from '@/lib/types';
+import type { Pagamento, TipoPagamento } from '@/lib/types';
 import { BarraFiltro, useFiltro } from '@/components/FiltroPeriodo';
 import { Botao, Cabecalho, Campo, Carregando, Modal, Painel, Pilulas, Selecao, Texto, Vazio, useAviso } from '@/components/ui';
 
 function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; onPronto?: () => void; compacto?: boolean }) {
-  const { oficinas, entradas, pagamentos, recarregar } = useData();
+  const { oficinas, entradas, pagamentos, recarregar, precificacaoPronta } = useData();
   const avisar = useAviso();
+  const [tipo, setTipo] = useState<TipoPagamento>(inicial?.tipo ?? 'pagamento');
   const ativas = oficinas.filter((o) => o.ativa || o.id === inicial?.oficina_id);
   const [data, setData] = useState(inicial?.data ?? hoje());
   const [oficinaId, setOficinaId] = useState(inicial?.oficina_id ?? '');
@@ -38,13 +39,15 @@ function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; o
     const v = parseNumero(valor);
     if (!oficinaId || v === null || v === 0) { avisar('Informe a oficina e o valor.', 'erro'); return; }
     setSalvando(true);
-    const linha = { data, oficina_id: oficinaId, valor: Math.round(v * 100) / 100, observacao: obs.trim() || null };
+    const linha: Record<string, unknown> = { data, oficina_id: oficinaId, valor: Math.round(v * 100) / 100, observacao: obs.trim() || null };
+    if (precificacaoPronta) linha.tipo = tipo; // coluna criada pelo precificacao.sql
     const { error } = inicial
       ? await supabase.from('pagamentos').update(linha).eq('id', inicial.id)
       : await supabase.from('pagamentos').insert(linha);
     setSalvando(false);
     if (error) { avisar(mensagemErro(error), 'erro'); return; }
-    avisar(inicial ? 'Pagamento atualizado.' : `Pagamento de ${brl(linha.valor)} registrado.`);
+    const nomeTipo = tipo === 'ajuste' ? 'Ajuste' : 'Pagamento';
+    avisar(inicial ? `${nomeTipo} atualizado.` : `${nomeTipo} de ${brl(linha.valor as number)} registrado.`);
     if (!inicial) { setValor(''); setObs(''); }
     await recarregar(['pagamentos']);
     onPronto?.();
@@ -64,6 +67,11 @@ function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; o
           )}
         </Campo>
       </div>
+      {precificacaoPronta && (
+        <Campo rotulo="Tipo" dica={tipo === 'ajuste' ? 'Acerta o saldo sem ser dinheiro pago. Não entra no total pago nem no prazo de pagamento.' : undefined}>
+          <Pilulas rotulo="Tipo" valor={tipo} onChange={setTipo} opcoes={[{ valor: 'pagamento', rotulo: 'Pagamento' }, { valor: 'ajuste', rotulo: 'Ajuste de saldo' }]} />
+        </Campo>
+      )}
       <Campo rotulo="Valor (R$)"
         dica={saldo > 0.005 && !inicial
           ? <button type="button" className="font-semibold text-indigo underline" onClick={() => setValor(dec(Math.round(saldo * 100) / 100))}>Quitar o saldo: {brl(saldo)}</button>
@@ -75,14 +83,14 @@ function FormPagamento({ inicial, onPronto, compacto }: { inicial?: Pagamento; o
         <datalist id="obs-pagamento">{sugestoes.map((s) => <option key={s} value={s} />)}</datalist>
       </Campo>
       <Botao variante={inicial ? 'primario' : 'destaque'} onClick={salvar} disabled={salvando}>
-        {salvando ? 'Salvando…' : inicial ? 'Salvar alterações' : 'Registrar pagamento'}
+        {salvando ? 'Salvando…' : inicial ? 'Salvar alterações' : tipo === 'ajuste' ? 'Registrar ajuste' : 'Registrar pagamento'}
       </Botao>
     </div>
   );
 }
 
 export default function PagamentosPage() {
-  const { oficinas, entradas, pagamentos, carregando, nomeOficina, recarregar } = useData();
+  const { oficinas, entradas, pagamentos, carregando, nomeOficina, recarregar, precificacaoPronta } = useData();
   const avisar = useAviso();
   const f = useFiltro('tudo');
   const [editando, setEditando] = useState<Pagamento | null>(null);
@@ -99,13 +107,23 @@ export default function PagamentosPage() {
     recarregar(['pagamentos']);
   }
 
+  /** Zera o saldo com um ajuste (para acertos de contas com arredondamento ou diferenças antigas). */
+  async function zerarSaldo(oficinaId: string, saldo: number) {
+    const valor = Math.round(saldo * 100) / 100;
+    if (!confirm(`Lançar um ajuste de ${brl(valor)} para zerar o saldo de ${nomeOficina(oficinaId)}? Não é pagamento: não entra no total pago.`)) return;
+    const { error } = await supabase.from('pagamentos').insert({ data: hoje(), oficina_id: oficinaId, valor, observacao: 'Ajuste para zerar o saldo', tipo: 'ajuste' });
+    if (error) { avisar(mensagemErro(error), 'erro'); return; }
+    avisar('Saldo zerado com ajuste.');
+    recarregar(['pagamentos']);
+  }
+
   if (carregando) return <Carregando />;
 
   return (
     <>
       <Cabecalho titulo="Pagamentos"
         acoes={<Botao variante="secundario" disabled={!lista.length} onClick={() => baixarPlanilha('pagamentos.xlsx', [{
-          nome: 'Pagamentos', linhas: lista.map((p) => ({ Data: dataBR(p.data), Oficina: nomeOficina(p.oficina_id), Valor: p.valor, 'Observação': p.observacao ?? '' })),
+          nome: 'Pagamentos', linhas: lista.map((p) => ({ Data: dataBR(p.data), Oficina: nomeOficina(p.oficina_id), Tipo: p.tipo === 'ajuste' ? 'Ajuste' : 'Pagamento', Valor: p.valor, 'Observação': p.observacao ?? '' })),
         }])}><Download size={17} />Exportar</Botao>} />
 
       <div className="grid gap-4 lg:grid-cols-[400px_1fr]">
@@ -121,6 +139,9 @@ export default function PagamentosPage() {
                   <span className="num text-right">
                     <span className="block font-semibold">{brl(Math.abs(s.saldo))}</span>
                     <span className="block text-xs text-linha">{s.saldo > 0.005 ? 'a pagar' : s.saldo < -0.005 ? 'crédito com a oficina' : 'quitado'}</span>
+                    {precificacaoPronta && Math.abs(s.saldo) > 0.005 && Math.abs(s.saldo) < 500 && (
+                      <button className="text-xs font-semibold text-indigo underline" onClick={() => zerarSaldo(s.oficina.id, s.saldo)}>zerar com ajuste</button>
+                    )}
                   </span>
                 </li>
               ))}
@@ -133,8 +154,8 @@ export default function PagamentosPage() {
           {!lista.length ? <Vazio titulo="Nenhum pagamento no período" /> : (
             <div className="overflow-hidden rounded-xl border border-borda bg-tecido">
               <div className="num flex justify-between bg-papel/70 px-4 py-2.5 text-[14px]">
-                <span className="text-linha">{lista.length} pagamentos</span>
-                <strong>{brl(lista.reduce((s, p) => s + p.valor, 0))}</strong>
+                <span className="text-linha">{lista.length} lançamentos</span>
+                <strong>{brl(lista.filter((p) => p.tipo !== 'ajuste').reduce((s, p) => s + p.valor, 0))} pagos</strong>
               </div>
               <ul className="divide-y divide-borda">
                 {lista.map((p) => (
@@ -144,6 +165,7 @@ export default function PagamentosPage() {
                         <span className="block font-semibold">
                           <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: corOficina(oficinas, p.oficina_id) }} />
                           {nomeOficina(p.oficina_id)}
+                          {p.tipo === 'ajuste' && <span className="ml-2 rounded-full bg-ambar-claro px-2 py-0.5 text-[11px] font-semibold text-ambar">Ajuste</span>}
                         </span>
                         <span className="block truncate text-[13px] text-linha">{dataBR(p.data)}, {diaSemana(p.data)}{p.observacao ? `. ${p.observacao}` : ''}</span>
                       </span>
@@ -157,8 +179,8 @@ export default function PagamentosPage() {
         </div>
       </div>
 
-      <Modal aberto={!!editando} titulo="Editar pagamento" onFechar={() => setEditando(null)}
-        rodape={editando && <Botao variante="perigo" onClick={() => excluir(editando)}>Excluir pagamento</Botao>}>
+      <Modal aberto={!!editando} titulo={editando?.tipo === 'ajuste' ? 'Editar ajuste' : 'Editar pagamento'} onFechar={() => setEditando(null)}
+        rodape={editando && <Botao variante="perigo" onClick={() => excluir(editando)}>Excluir</Botao>}>
         {editando && <FormPagamento key={editando.id} inicial={editando} compacto onPronto={() => setEditando(null)} />}
       </Modal>
     </>

@@ -21,7 +21,8 @@ export function resumo(es: Entrada[], ps: Pagamento[]): Resumo {
     if (e.operacao === 'Costura') { pecasCostura += e.quantidade; valorCostura += e.valor_total; entregas.add(e.data + e.oficina_id); }
     else { pecasCorte += e.quantidade; valorCorte += e.valor_total; }
   }
-  const pago = ps.reduce((s, p) => s + p.valor, 0);
+  // ajustes acertam o saldo, mas não são dinheiro pago
+  const pago = ps.filter((p) => p.tipo !== 'ajuste').reduce((s, p) => s + p.valor, 0);
   return {
     pecasCostura, valorCostura, pecasCorte, valorCorte, valorTotal: valorCostura + valorCorte, pago,
     custoMedioCostura: pecasCostura ? valorCostura / pecasCostura : 0,
@@ -89,10 +90,11 @@ export function saldos(oficinas: Oficina[], es: Entrada[], ps: Pagamento[], hoje
     const eo = es.filter((e) => e.oficina_id === o.id);
     const po = ps.filter((p) => p.oficina_id === o.id);
     const produzido = eo.reduce((s, e) => s + e.valor_total, 0);
-    const pago = po.reduce((s, p) => s + p.valor, 0);
+    const pago = po.reduce((s, p) => s + p.valor, 0); // inclui ajustes: é o que fecha o saldo
+    const soPagamentos = po.filter((p) => p.tipo !== 'ajuste');
     const ultimaEntrega = eo.reduce<string | null>((m, e) => (!m || e.data > m ? e.data : m), null);
-    const ultimoPagamento = po.reduce<string | null>((m, p) => (!m || p.data > m ? p.data : m), null);
-    const { prazoMedio, emAbertoDesde } = fifo(eo, po);
+    const ultimoPagamento = soPagamentos.reduce<string | null>((m, p) => (!m || p.data > m ? p.data : m), null);
+    const { prazoMedio, emAbertoDesde } = fifo(eo, soPagamentos);
     return {
       oficina: o, produzido, pago, saldo: produzido - pago, ultimaEntrega, ultimoPagamento,
       diasSemPagamento: ultimoPagamento ? diffDias(ultimoPagamento, hojeIso) : null,

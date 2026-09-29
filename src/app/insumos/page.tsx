@@ -6,16 +6,19 @@ import { useData } from '@/lib/data';
 import { supabase, mensagemErro } from '@/lib/supabase';
 import { quantidadeCompra, textoCompra } from '@/lib/cortes/calc';
 import { chave, num, parseNumero } from '@/lib/format';
-import type { Insumo } from '@/lib/types';
+import { CATEGORIAS_INSUMO, type CategoriaInsumo, type Insumo } from '@/lib/types';
 import { Botao, Cabecalho, Campo, Carregando, Modal, Painel, Selecao, Texto, cx, useAviso } from '@/components/ui';
 import { AvisoMigracao } from '@/components/cortes/comum';
 
-type Edicao = { id?: string; nome: string; unidade_consumo: string; unidade_compra: string; fator: string; multiplo: string; por_cor: boolean; no_pedido: boolean; ativo: boolean };
+type Edicao = {
+  id?: string; nome: string; unidade_consumo: string; unidade_compra: string; fator: string; multiplo: string; por_cor: boolean; no_pedido: boolean; ativo: boolean;
+  categoria: CategoriaInsumo; preco: string; preco_qtd: string;
+};
 const UNIDADES_CONSUMO = [{ v: 'm', r: 'metros (m)' }, { v: 'kg', r: 'quilos (kg)' }, { v: 'un', r: 'unidades (un)' }];
 const fmt = (n: number | null) => (n === null ? '' : n.toLocaleString('pt-BR', { maximumFractionDigits: 4, useGrouping: false }));
 
 export default function InsumosPage() {
-  const { insumos, cores, ficha, carregando, cortesProntos, recarregar } = useData();
+  const { insumos, cores, ficha, carregando, cortesProntos, precificacaoPronta, recarregar } = useData();
   const avisar = useAviso();
   const [ed, setEd] = useState<Edicao | null>(null);
   const [busca, setBusca] = useState('');
@@ -36,19 +39,25 @@ export default function InsumosPage() {
   const abrir = (i?: Insumo) => setEd(i ? {
     id: i.id, nome: i.nome, unidade_consumo: i.unidade_consumo, unidade_compra: i.unidade_compra,
     fator: fmt(i.fator), multiplo: fmt(i.multiplo), por_cor: i.por_cor, no_pedido: i.no_pedido, ativo: i.ativo,
-  } : { nome: '', unidade_consumo: 'm', unidade_compra: 'Rolos', fator: '100', multiplo: '1', por_cor: true, no_pedido: true, ativo: true });
+    categoria: i.categoria ?? 'M.P', preco: fmt(i.preco ?? null), preco_qtd: fmt(i.preco_qtd ?? 1),
+  } : { nome: '', unidade_consumo: 'm', unidade_compra: 'Rolos', fator: '100', multiplo: '1', por_cor: true, no_pedido: true, ativo: true, categoria: 'M.P', preco: '', preco_qtd: '100' });
 
   async function salvar() {
     if (!ed || !ed.nome.trim()) return;
     const fator = parseNumero(ed.fator), multiplo = ed.multiplo.trim() ? parseNumero(ed.multiplo) : null;
     if (!fator || fator <= 0 || (multiplo !== null && multiplo <= 0)) { avisar('Confira o tamanho da embalagem e o arredondamento.', 'erro'); return; }
-    const linha = {
+    const linha: Record<string, unknown> = {
       nome: ed.nome.trim(), unidade_consumo: ed.unidade_consumo, unidade_compra: ed.unidade_compra.trim() || 'Un',
       fator, multiplo, por_cor: ed.por_cor, no_pedido: ed.no_pedido, ativo: ed.ativo,
     };
+    if (precificacaoPronta) {
+      const preco = ed.preco.trim() ? parseNumero(ed.preco) : null, precoQtd = parseNumero(ed.preco_qtd) || 1;
+      const mudou = ed.id ? (() => { const i = insumos.find((x) => x.id === ed.id); return i?.preco !== preco || i?.preco_qtd !== precoQtd; })() : preco !== null;
+      Object.assign(linha, { categoria: ed.categoria, preco, preco_qtd: precoQtd, ...(mudou ? { preco_atualizado_em: new Date().toISOString().slice(0, 10) } : {}) });
+    }
     const { error } = ed.id ? await supabase.from('insumos').update(linha).eq('id', ed.id) : await supabase.from('insumos').insert(linha);
     if (error) { avisar(mensagemErro(error), 'erro'); return; }
-    avisar(ed.id ? 'Insumo atualizado.' : `${linha.nome} cadastrado. Use-o na ficha técnica dos modelos.`);
+    avisar(ed.id ? 'Insumo atualizado.' : `${ed.nome.trim()} cadastrado. Use-o na ficha técnica dos modelos.`);
     setEd(null); recarregar(['insumos']);
   }
   async function excluir() {
@@ -141,6 +150,19 @@ export default function InsumosPage() {
               <Texto inputMode="decimal" value={ed.multiplo} onChange={(e) => setEd({ ...ed, multiplo: e.target.value })} />
             </Campo>
             {exemplo && <p className="col-span-2 rounded-lg bg-papel px-3 py-2 text-[14px]">{exemplo}</p>}
+            {precificacaoPronta && (<>
+              <Campo rotulo="Preço (R$)" dica="Quanto você paga">
+                <Texto inputMode="decimal" value={ed.preco} onChange={(e) => setEd({ ...ed, preco: e.target.value })} placeholder="0,00" />
+              </Campo>
+              <Campo rotulo={`Por quanto (${ed.unidade_consumo})`} dica={(() => { const p = parseNumero(ed.preco), q = parseNumero(ed.preco_qtd); return p !== null && q ? `R$ ${(p / q).toLocaleString('pt-BR', { maximumFractionDigits: 4 })} por ${ed.unidade_consumo}` : 'Ex.: 45 m de renda por R$ 59,90'; })()}>
+                <Texto inputMode="decimal" value={ed.preco_qtd} onChange={(e) => setEd({ ...ed, preco_qtd: e.target.value })} />
+              </Campo>
+              <Campo rotulo="Categoria" className="col-span-2">
+                <Selecao value={ed.categoria} onChange={(e) => setEd({ ...ed, categoria: e.target.value as CategoriaInsumo })}>
+                  {CATEGORIAS_INSUMO.map((c) => <option key={c.valor} value={c.valor}>{c.rotulo}</option>)}
+                </Selecao>
+              </Campo>
+            </>)}
             <label className="col-span-2 flex items-center gap-3 text-[15px]">
               <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={ed.por_cor} onChange={(e) => setEd({ ...ed, por_cor: e.target.checked })} />
               Comprar separado por cor

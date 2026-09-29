@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, PackagePlus, ClipboardList, Wallet, ScrollText, Tags, Users, Upload, MoreHorizontal, LogOut,
-  Scissors, FilePlus2, BookOpen, Boxes,
+  Scissors, FilePlus2, BookOpen, Boxes, Calculator,
 } from 'lucide-react';
 import { supabase, supabaseConfigurado, LOGIN_EMAIL, mensagemErro } from '@/lib/supabase';
 import { DataProvider, useData } from '@/lib/data';
@@ -27,11 +27,12 @@ const GRUPOS: { area: 'pagamentos' | 'cortes' | 'geral'; titulo: string; itens: 
     ],
   },
   {
-    area: 'cortes', titulo: 'Cortes',
+    area: 'cortes', titulo: 'Produção',
     itens: [
       { href: '/cortes', rotulo: 'Cortes', icone: Scissors },
       { href: '/cortes/novo', rotulo: 'Novo corte', icone: FilePlus2 },
       { href: '/ficha', rotulo: 'Ficha técnica', icone: BookOpen },
+      { href: '/precificacao', rotulo: 'Precificação', icone: Calculator },
       { href: '/insumos', rotulo: 'Insumos e cores', icone: Boxes },
     ],
   },
@@ -47,9 +48,9 @@ const NAV = GRUPOS.flatMap((g) => g.itens);
 /** Barra inferior do celular: 4 atalhos por área, o do meio em destaque. */
 const NAV_CELULAR = {
   pagamentos: { itens: ['/', '/entradas', '/lancar', '/pagamentos'], destaque: '/lancar' },
-  cortes: { itens: ['/cortes', '/ficha', '/cortes/novo', '/insumos'], destaque: '/cortes/novo' },
+  cortes: { itens: ['/cortes', '/ficha', '/cortes/novo', '/precificacao'], destaque: '/cortes/novo' },
 };
-const areaDe = (path: string) => (/^\/(cortes|ficha|insumos)/.test(path) ? 'cortes' : 'pagamentos');
+const areaDe = (path: string) => (/^\/(cortes|ficha|insumos|precificacao)/.test(path) ? 'cortes' : 'pagamentos');
 
 function Marca() {
   return (
@@ -173,7 +174,7 @@ function Navegacao({ children }: { children: ReactNode }) {
           {(['pagamentos', 'cortes'] as const).map((a) => (
             <Link key={a} href={a === 'pagamentos' ? '/' : '/cortes'} role="tab" aria-selected={area === a}
               className={cx('rounded-full py-2 text-center text-sm font-semibold', area === a ? 'bg-tinta text-white' : 'text-linha')}>
-              {a === 'pagamentos' ? 'Pagamentos' : 'Cortes'}
+              {a === 'pagamentos' ? 'Pagamentos' : 'Produção'}
             </Link>
           ))}
         </div>

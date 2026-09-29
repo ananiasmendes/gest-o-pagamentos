@@ -116,7 +116,7 @@ export function calcularMateriais(
   const linhas: LinhaMaterial[] = [];
   for (const [insumoId, consumoPorCor] of porInsumo) {
     const insumo = insumos.find((i) => i.id === insumoId);
-    if (!insumo) continue;
+    if (!insumo || insumo.categoria === 'M.O') continue; // mão de obra (ex.: corte) não se compra
     const consumoTotal = Array.from(consumoPorCor.values()).reduce((s, v) => s + v, 0);
     if (consumoTotal <= 0) continue;
     const compra = new Map<string, number>();

@@ -8,7 +8,7 @@ import { brl, dataBR, dataCurta, diaSemana, hoje, num } from '@/lib/format';
 import { PRESETS, intervalo, type Preset } from '@/components/FiltroPeriodo';
 import { Botao, classeBotao, Cabecalho, Campo, Carregando, Etiqueta, Painel, Selecao, Texto, Vazio, useAviso } from '@/components/ui';
 
-interface Movimento { data: string; tipo: 'Produção' | 'Pagamento'; valor: number; pecas: number; texto: string; saldo: number }
+interface Movimento { data: string; tipo: 'Produção' | 'Pagamento' | 'Ajuste'; valor: number; pecas: number; texto: string; saldo: number }
 
 function Extrato() {
   const { oficinas, entradas, pagamentos, modelos, carregando } = useData();
@@ -41,7 +41,7 @@ function Extrato() {
         data, tipo: 'Produção' as const, valor: d.valor, pecas: d.pecas,
         texto: Array.from(d.itens).sort((a, b) => b[1] - a[1]).map(([n, q]) => `${n} ${num(q)}`).join(', '),
       })),
-      ...ps.map((p) => ({ data: p.data, tipo: 'Pagamento' as const, valor: -p.valor, pecas: 0, texto: p.observacao ?? '' })),
+      ...ps.map((p) => ({ data: p.data, tipo: (p.tipo === 'ajuste' ? 'Ajuste' : 'Pagamento') as Movimento['tipo'], valor: -p.valor, pecas: 0, texto: p.observacao ?? '' })),
     ].sort((a, b) => a.data.localeCompare(b.data) || (a.tipo === 'Produção' ? -1 : 1));
 
     let saldo = 0, saldoAnterior = 0;
@@ -53,8 +53,9 @@ function Extrato() {
     }
     const produzido = movs.filter((m) => m.tipo === 'Produção').reduce((s, m) => s + m.valor, 0);
     const pago = -movs.filter((m) => m.tipo === 'Pagamento').reduce((s, m) => s + m.valor, 0);
+    const ajustes = -movs.filter((m) => m.tipo === 'Ajuste').reduce((s, m) => s + m.valor, 0);
     const pecas = movs.reduce((s, m) => s + m.pecas, 0);
-    return { movs, saldoAnterior, produzido, pago, pecas, saldoFinal: saldoAnterior + produzido - pago, saldoHoje: saldo };
+    return { movs, saldoAnterior, produzido, pago, ajustes, pecas, saldoFinal: saldoAnterior + produzido - pago - ajustes, saldoHoje: saldo };
   }, [entradas, pagamentos, modelos, oficinaId, de, ate]);
 
   const oficina = oficinas.find((o) => o.id === oficinaId);
@@ -75,6 +76,12 @@ function Extrato() {
       l.push('*Pagamentos*');
       pags.forEach((m) => l.push(`${dataCurta(m.data)}: ${brl(-m.valor)}${m.texto ? ` (${m.texto})` : ''}`));
       l.push(`Total: ${brl(calc.pago)}`, '');
+    }
+    const ajs = calc.movs.filter((m) => m.tipo === 'Ajuste');
+    if (ajs.length) {
+      l.push('*Ajustes*');
+      ajs.forEach((m) => l.push(`${dataCurta(m.data)}: ${brl(-m.valor)}${m.texto ? ` (${m.texto})` : ''}`));
+      l.push('');
     }
     l.push(calc.saldoFinal > 0.005 ? `*Saldo a receber: ${brl(calc.saldoFinal)}*` : calc.saldoFinal < -0.005 ? `*Crédito adiantado: ${brl(-calc.saldoFinal)}*` : '*Tudo quitado*');
     return l.join('\n');
@@ -115,6 +122,7 @@ function Extrato() {
               {preset !== 'tudo' && (<><dt className="opacity-85">Saldo anterior</dt><dd className="text-right">{brl(calc.saldoAnterior)}</dd></>)}
               <dt className="opacity-85">Produção</dt><dd className="text-right">{brl(calc.produzido)}</dd>
               <dt className="opacity-85">Pagamentos</dt><dd className="text-right">{brl(calc.pago)}</dd>
+              {Math.abs(calc.ajustes) > 0.005 && (<><dt className="opacity-85">Ajustes</dt><dd className="text-right">{brl(calc.ajustes)}</dd></>)}
               <dt className="opacity-85">Peças costuradas</dt><dd className="text-right">{num(calc.pecas)}</dd>
             </dl>
           </Etiqueta>
@@ -135,12 +143,12 @@ function Extrato() {
                   <div className="min-w-0">
                     <div className="font-semibold">
                       {dataBR(m.data)} <span className="text-[13px] font-medium text-linha">{diaSemana(m.data)}</span>
-                      <span className={`ml-2 rounded-full px-2 py-0.5 text-[12px] ${m.tipo === 'Produção' ? 'bg-indigo-claro text-indigo' : 'bg-agua-claro text-agua'}`}>{m.tipo}</span>
+                      <span className={`ml-2 rounded-full px-2 py-0.5 text-[12px] ${m.tipo === 'Produção' ? 'bg-indigo-claro text-indigo' : m.tipo === 'Ajuste' ? 'bg-ambar-claro text-ambar' : 'bg-agua-claro text-agua'}`}>{m.tipo}</span>
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-[13px] text-linha">{m.pecas ? `${num(m.pecas)} peças: ` : ''}{m.texto}</div>
                   </div>
                   <div className="num text-right">
-                    <div className={`font-semibold ${m.tipo === 'Pagamento' ? 'text-agua' : ''}`}>{m.tipo === 'Pagamento' ? '−' : '+'}{brl(Math.abs(m.valor))}</div>
+                    <div className={`font-semibold ${m.tipo === 'Pagamento' ? 'text-agua' : ''}`}>{m.valor < 0 ? '−' : '+'}{brl(Math.abs(m.valor))}</div>
                     <div className="text-[12px] text-linha">saldo {brl(m.saldo)}</div>
                   </div>
                 </li>

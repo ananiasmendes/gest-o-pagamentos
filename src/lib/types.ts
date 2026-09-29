@@ -1,12 +1,15 @@
 export type Operacao = 'Costura' | 'Corte';
-export type Tipo = 'Calcinha' | 'Conjunto' | 'Body';
+export type Tipo = 'Calcinha' | 'Conjunto' | 'Body' | 'Pijama';
 
-export const TIPOS: Tipo[] = ['Calcinha', 'Conjunto', 'Body'];
+export const TIPOS: Tipo[] = ['Calcinha', 'Conjunto', 'Body', 'Pijama'];
 export const OPERACOES: Operacao[] = ['Costura', 'Corte'];
 export const TAMANHOS = ['P', 'M', 'G', 'GG'] as const;
 
 export interface Oficina { id: string; nome: string; ativa: boolean; faz_costura: boolean; faz_corte: boolean }
-export interface Modelo { id: string; nome: string; tipo: Tipo; codigo: string | null; ativo: boolean }
+export interface Modelo {
+  id: string; nome: string; tipo: Tipo; codigo: string | null; ativo: boolean;
+  preco_venda?: number | null; sem_costura?: boolean;
+}
 export interface Preco {
   id: string; oficina_id: string; operacao: Operacao;
   modelo_id: string | null; tipo: Tipo | null; valor: number; vigente_desde: string;
@@ -17,7 +20,8 @@ export interface Entrada {
   valor_unitario: number; valor_total: number; observacao: string | null;
   corte_id?: string | null;
 }
-export interface Pagamento { id: string; data: string; oficina_id: string; valor: number; observacao: string | null }
+export type TipoPagamento = 'pagamento' | 'ajuste';
+export interface Pagamento { id: string; data: string; oficina_id: string; valor: number; observacao: string | null; tipo?: TipoPagamento }
 
 export type NovaEntrada = Omit<Entrada, 'id' | 'valor_total' | 'corte_id'>;
 export type NovoPagamento = Omit<Pagamento, 'id'>;
@@ -32,10 +36,16 @@ export const STATUS_CORTE: { valor: StatusCorte; rotulo: string }[] = [
   { valor: 'concluido', rotulo: 'Concluído' },
 ];
 
+export type CategoriaInsumo = 'M.P' | 'Acabamento' | 'M.O';
+export const CATEGORIAS_INSUMO: { valor: CategoriaInsumo; rotulo: string }[] = [
+  { valor: 'M.P', rotulo: 'Matéria-prima' }, { valor: 'Acabamento', rotulo: 'Acabamento' }, { valor: 'M.O', rotulo: 'Mão de obra' },
+];
+
 export interface Cor { id: string; nome: string; ativa: boolean }
 export interface Insumo {
   id: string; nome: string; unidade_consumo: string; unidade_compra: string;
   fator: number; multiplo: number | null; por_cor: boolean; no_pedido: boolean; ativo: boolean;
+  preco?: number | null; preco_qtd?: number; preco_atualizado_em?: string | null; categoria?: CategoriaInsumo;
 }
 export interface FichaItem { modelo_id: string; insumo_id: string; consumo: number }
 
@@ -51,3 +61,11 @@ export interface Corte {
 export interface CorteModelo { id: string; corte_id: string; modelo_id: string; oficina_id: string | null; grade: Grade; ordem: number }
 export interface CorteCor { id: string; corte_id: string; cor_id: string; folhas: number; ordem: number }
 export interface CorteItem { corte_id: string; chave: string; incluido: boolean | null; feito: boolean }
+
+// ---------------- Precificação -------------------------------------------
+
+export interface CustoFixo { id: string; nome: string; valor: number; ordem: number }
+export interface Parametro { chave: string; valor: number }
+export interface TabelaPreco {
+  id: string; nome: string; lucro: number; inclui_imposto: boolean; inclui_comissao: boolean; inclui_frete: boolean; ordem: number;
+}

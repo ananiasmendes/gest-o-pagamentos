@@ -26,6 +26,10 @@ Tecnologia: Next.js 14, TypeScript, Tailwind CSS e Supabase.
 
 **Insumos e cores.** Como cada insumo é comprado (rolo de quantos metros, pacote de quantos pares, de meio em meio quilo…) e as cores de tecido.
 
+**Precificação.** Custo de cada peça pela ficha técnica (matéria-prima, acabamento, corte e a maior costura paga entre as oficinas), custo fixo por peça, preço sugerido em cada tabela e o lucro que sobra no preço atual. Os custos fixos, os percentuais (imposto, comissão, frete), as tabelas e os preços da matéria-prima são editados na própria tela.
+
+**Ajustes de saldo.** Em Pagamentos, um lançamento pode ser "Ajuste": acerta o saldo da oficina sem contar como dinheiro pago (não entra no total pago nem no prazo de pagamento).
+
 **Importar.** Recebe entradas, pagamentos ou preços de um arquivo .xlsx ou .csv. Mostra uma prévia com erros e possíveis duplicatas antes de gravar e oferece uma planilha modelo para baixar.
 
 ### Regra de preço
@@ -89,6 +93,11 @@ Para quem já está com o sistema no ar:
 
 Se o site abrir a aba Cortes com o aviso "Falta criar as tabelas de cortes no banco", é porque o passo 1 ainda não foi feito.
 
+## Atualização: precificação e fichas 2026
+
+1. No Supabase (SQL Editor › New query), rode `supabase/precificacao.sql` e depois `supabase/precificacao_seed.sql`. O seed traz da planilha "Fichas de composição 2026" os preços da matéria-prima, as fichas técnicas atuais, os preços de venda, os custos fixos e percentuais, os preços de costura do Fabiano e o ajuste de R$ 96,60 do Antônio. Pode rodar de novo sem duplicar.
+2. No GitHub, **Add file › Upload files**, arraste o conteúdo do zip da atualização e faça o commit. A Vercel publica sozinha.
+
 ## Segurança
 
 Só quem sabe o PIN acessa o sistema. As tabelas têm Row Level Security: sem login, o banco não entrega nem aceita nada, mesmo que alguém descubra a chave anon, que é pública por natureza.
@@ -104,10 +113,14 @@ supabase/schema.sql    tabelas, regra de preço vigente, gatilho e segurança
 supabase/seed.sql      dados vindos da planilha (nomes já padronizados)
 supabase/cortes.sql    tabelas do módulo de cortes
 supabase/cortes_seed.sql  cores, insumos e ficha técnica da planilha de corte
+supabase/precificacao.sql       tabelas e colunas da precificação e dos ajustes
+supabase/precificacao_seed.sql  dados da planilha de fichas de composição 2026
+supabase/limpar_duplicados.sql  remove linhas repetidas se o seed.sql for rodado mais de uma vez
 src/app/               uma pasta por tela
 src/components/        interface: casca do app, filtros, formulários
 src/lib/kpis.ts        cálculo dos indicadores e do prazo médio de pagamento
 src/lib/importer.ts    leitura, validação e gravação das importações
 src/lib/precos.ts      busca do preço vigente em uma data
 src/lib/cortes/        leitura do risco, cálculos do corte e PDFs
+src/lib/precificacao.ts  custo por peça e preço de venda
 ```
