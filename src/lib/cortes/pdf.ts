@@ -6,9 +6,24 @@ type Doc = import('jspdf').jsPDF;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Celula = any;
 
-const TINTA: [number, number, number] = [35, 31, 53];
-const LINHA: [number, number, number] = [110, 104, 135];
-const FUNDO: [number, number, number] = [244, 243, 248];
+// cores da marca Pinho
+const TINTA: [number, number, number] = [42, 22, 20];
+const BORDO: [number, number, number] = [145, 28, 25];
+const LINHA: [number, number, number] = [122, 98, 92];
+const FUNDO: [number, number, number] = [251, 246, 242];
+
+/** Logo da Pinho para o cabeçalho dos PDFs (carregado uma vez; sem logo, o PDF sai sem ele). */
+let logoCache: string | null | undefined;
+async function carregarLogo() {
+  if (logoCache !== undefined) return logoCache;
+  try {
+    const blob = await (await fetch('/logo-pinho.png')).blob();
+    logoCache = await new Promise<string>((ok, erro) => {
+      const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = erro; r.readAsDataURL(blob);
+    });
+  } catch { logoCache = null; }
+  return logoCache;
+}
 const num = (n: number) => n.toLocaleString('pt-BR');
 
 async function novoDoc(paisagem = false) {
@@ -16,13 +31,18 @@ async function novoDoc(paisagem = false) {
   // opções da tabela montadas com objetos livres (caixinhas); a tipagem fica solta de propósito
   const autoTable = (await import('jspdf-autotable')).default as unknown as (doc: Doc, opcoes: Celula) => void;
   const doc = new jsPDF({ orientation: paisagem ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+  await carregarLogo();
   return { doc, autoTable };
 }
 
 export interface Cabecalho { titulo: string; corte: string; detalhes: string[] }
 
 function cabecalho(doc: Doc, c: Cabecalho) {
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...TINTA);
+  if (logoCache) {
+    const larg = 32, alt = larg * 230 / 567;
+    try { doc.addImage(logoCache, 'PNG', doc.internal.pageSize.getWidth() - 14 - larg, 9, larg, alt); } catch { /* segue sem logo */ }
+  }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(...BORDO);
   doc.text(c.titulo, 14, 18);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
   doc.text(c.corte, 14, 25);
@@ -60,8 +80,8 @@ function desenharCaixas(doc: Doc) {
 }
 
 const estiloBase = {
-  styles: { font: 'helvetica', fontSize: 9, textColor: TINTA, cellPadding: 1.8, lineColor: [227, 224, 236] as [number, number, number], lineWidth: 0.2 },
-  headStyles: { fillColor: TINTA, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const },
+  styles: { font: 'helvetica', fontSize: 9, textColor: TINTA, cellPadding: 1.8, lineColor: [234, 223, 216] as [number, number, number], lineWidth: 0.2 },
+  headStyles: { fillColor: BORDO, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const },
   alternateRowStyles: { fillColor: FUNDO },
   margin: { left: 14, right: 14, bottom: 16 },
 };
@@ -84,7 +104,7 @@ const paddingCaixa = (d: Celula) => {
 };
 
 function titulo(doc: Doc, texto: string, y: number) {
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...TINTA);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...BORDO);
   doc.text(texto, 14, y);
 }
 

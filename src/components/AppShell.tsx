@@ -52,15 +52,12 @@ const NAV_CELULAR = {
 };
 const areaDe = (path: string) => (/^\/(cortes|ficha|insumos|precificacao)/.test(path) ? 'cortes' : 'pagamentos');
 
-function Marca() {
+function Marca({ grande }: { grande?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden>
-        <circle cx="16" cy="16" r="14" fill="#B8235A" />
-        <path d="M6 16h20" stroke="#fff" strokeWidth="2" strokeDasharray="3 2.5" strokeLinecap="round" />
-        <circle cx="16" cy="16" r="4" fill="#F4F3F8" />
-      </svg>
-      <span className="font-display text-[19px] font-bold">Oficinas</span>
+    <div className="flex items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-pinho.png" alt="Pinho Lingerie" className={grande ? 'h-16 w-auto' : 'h-10 w-auto'} />
+      <span className="sr-only">Gestão</span>
     </div>
   );
 }
@@ -82,8 +79,8 @@ function Login() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <form onSubmit={entrar} className="w-full max-w-xs">
-        <Marca />
-        <h1 className="mt-8 text-[28px] font-bold leading-tight">Pagamento das oficinas</h1>
+        <Marca grande />
+        <h1 className="mt-8 text-[28px] font-bold leading-tight text-framboesa">Gestão da fábrica</h1>
         <p className="mt-1 text-linha">Digite o PIN para entrar.</p>
         <div className="mt-6 space-y-4">
           {!LOGIN_EMAIL && (

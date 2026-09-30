@@ -164,15 +164,15 @@ export default function InsumosPage() {
               </Campo>
             </>)}
             <label className="col-span-2 flex items-center gap-3 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={ed.por_cor} onChange={(e) => setEd({ ...ed, por_cor: e.target.checked })} />
+              <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={ed.por_cor} onChange={(e) => setEd({ ...ed, por_cor: e.target.checked })} />
               Comprar separado por cor
             </label>
             <label className="col-span-2 flex items-center gap-3 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={ed.no_pedido} onChange={(e) => setEd({ ...ed, no_pedido: e.target.checked })} />
+              <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={ed.no_pedido} onChange={(e) => setEd({ ...ed, no_pedido: e.target.checked })} />
               Aparece no pedido de material (dá para mudar em cada corte)
             </label>
             <label className="col-span-2 flex items-center gap-3 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={ed.ativo} onChange={(e) => setEd({ ...ed, ativo: e.target.checked })} />
+              <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={ed.ativo} onChange={(e) => setEd({ ...ed, ativo: e.target.checked })} />
               Ativo
             </label>
           </div>

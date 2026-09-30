@@ -101,7 +101,7 @@ function Ficha() {
         <Painel className="lg:max-h-[calc(100vh-160px)] lg:overflow-y-auto">
           <Texto value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar modelo" />
           <label className="mt-2 flex items-center gap-2 text-[13px] text-linha">
-            <input type="checkbox" className="h-4 w-4 accent-[#231F35]" checked={soSemFicha} onChange={(e) => setSoSemFicha(e.target.checked)} />
+            <input type="checkbox" className="h-4 w-4 accent-[#2A1614]" checked={soSemFicha} onChange={(e) => setSoSemFicha(e.target.checked)} />
             Só os sem ficha ({semFicha})
           </label>
           {/* celular: lista vira seleção */}

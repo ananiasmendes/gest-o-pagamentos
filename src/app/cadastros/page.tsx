@@ -141,16 +141,16 @@ export default function CadastrosPage() {
           <div className="grid gap-4">
             <Campo rotulo="Nome"><Texto autoFocus value={oficinaEd.nome} onChange={(e) => setOficinaEd({ ...oficinaEd, nome: e.target.value })} /></Campo>
             <label className="flex items-center gap-3 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.ativa} onChange={(e) => setOficinaEd({ ...oficinaEd, ativa: e.target.checked })} />
+              <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={oficinaEd.ativa} onChange={(e) => setOficinaEd({ ...oficinaEd, ativa: e.target.checked })} />
               Ativa (aparece no lançamento)
             </label>
             {cortesProntos && (<>
               <label className="flex items-center gap-3 text-[15px]">
-                <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.faz_costura} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_costura: e.target.checked })} />
+                <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={oficinaEd.faz_costura} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_costura: e.target.checked })} />
                 Faz costura (recebe modelos dos cortes)
               </label>
               <label className="flex items-center gap-3 text-[15px]">
-                <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={oficinaEd.faz_corte} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_corte: e.target.checked })} />
+                <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={oficinaEd.faz_corte} onChange={(e) => setOficinaEd({ ...oficinaEd, faz_corte: e.target.checked })} />
                 Faz corte (pode ser escolhido como cortador e recebe pelo corte)
               </label>
             </>)}
@@ -171,7 +171,7 @@ export default function CadastrosPage() {
             </Campo>
             <Campo rotulo="Código (opcional)"><Texto value={modeloEd.codigo} onChange={(e) => setModeloEd({ ...modeloEd, codigo: e.target.value })} /></Campo>
             <label className="col-span-2 flex items-center gap-3 text-[15px]">
-              <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={modeloEd.ativo} onChange={(e) => setModeloEd({ ...modeloEd, ativo: e.target.checked })} />
+              <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={modeloEd.ativo} onChange={(e) => setModeloEd({ ...modeloEd, ativo: e.target.checked })} />
               Ativo (aparece no lançamento)
             </label>
           </div>

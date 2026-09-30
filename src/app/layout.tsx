@@ -3,14 +3,14 @@ import './globals.css';
 import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'Oficinas | Produção e pagamentos',
+  title: 'Pinho · Gestão',
   description: 'Entradas de peças, pagamentos e indicadores das oficinas de costura.',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Oficinas', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Pinho', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
-  width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#F4F3F8',
+  width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#FBF6F2',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,10 +21,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500..800&family=Nunito+Sans:opsz,wght@6..12,400..800&display=swap"
         />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="icon" href="/icon-192.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body><AppShell>{children}</AppShell></body>
     </html>

@@ -32,7 +32,7 @@ function Numero({ rotulo, valor, detalhe }: { rotulo: string; valor: string; det
   );
 }
 
-const tooltipEstilo = { borderRadius: 10, border: '1px solid #E3E0EC', fontSize: 13 };
+const tooltipEstilo = { borderRadius: 10, border: '1px solid #EADFD8', fontSize: 13 };
 
 export default function PainelPage() {
   const { oficinas, modelos, entradas, pagamentos, carregando } = useData();
@@ -138,10 +138,10 @@ export default function PainelPage() {
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={calc.serie} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#E3E0EC" />
-                <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#6E6887' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: '#6E6887' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)} mil` : String(v))} />
-                <Tooltip contentStyle={tooltipEstilo} formatter={(v) => num(Number(v))} cursor={{ fill: '#F4F3F8' }} />
+                <CartesianGrid vertical={false} stroke="#EADFD8" />
+                <XAxis dataKey="mes" tick={{ fontSize: 12, fill: '#7A625C' }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: '#7A625C' }} tickLine={false} axisLine={false} tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)} mil` : String(v))} />
+                <Tooltip contentStyle={tooltipEstilo} formatter={(v) => num(Number(v))} cursor={{ fill: '#FBF6F2' }} />
                 <Legend wrapperStyle={{ fontSize: 13 }} />
                 {calc.ofs.map((o) => <Bar key={o.id} dataKey={o.nome} fill={corOficina(oficinas, o.id)} radius={[4, 4, 0, 0]} />)}
               </BarChart>

@@ -9,7 +9,7 @@ export { cx };
 // ---------------- Botões ----------------------------------------------
 type Variante = 'primario' | 'destaque' | 'secundario' | 'fantasma' | 'perigo';
 const VARIANTES: Record<Variante, string> = {
-  primario: 'bg-tinta text-white hover:bg-[#3a3452] disabled:bg-linha/50',
+  primario: 'bg-tinta text-white hover:bg-[#43241F] disabled:bg-linha/50',
   destaque: 'bg-framboesa text-white hover:bg-framboesa-escuro disabled:bg-linha/50',
   secundario: 'bg-tecido text-tinta border border-borda hover:border-linha/60',
   fantasma: 'text-tinta hover:bg-borda/60',
@@ -161,9 +161,11 @@ export function AvisosProvider({ children }: { children: ReactNode }) {
 }
 
 // ---------------- Etiqueta de valor (o destaque visual) -----------------
+/** Cartão com borda de "costura": fundo claro na cor da oficina e texto escuro na mesma cor. */
 export function Etiqueta({ cor, children, className }: { cor: string; children: ReactNode; className?: string }) {
   return (
-    <div className={cx('etiqueta p-4 pl-5', className)} style={{ background: cor, color: '#fff' }}>
+    <div className={cx('etiqueta p-4 pl-5', className)}
+      style={{ background: `color-mix(in srgb, ${cor} 13%, #ffffff)`, color: `color-mix(in srgb, ${cor} 72%, #000000)` }}>
       {children}
     </div>
   );

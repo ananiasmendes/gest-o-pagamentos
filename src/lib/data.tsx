@@ -155,8 +155,9 @@ export function useData() {
 }
 
 /** Cor fixa por oficina (pela ordem alfabética), usada nos gráficos e etiquetas. */
-export const CORES_OFICINA = ['#3D348B', '#B8235A', '#1F7A6A', '#A8671A', '#6D597A', '#2E6FA7'];
+// paleta da marca Pinho; a ordem segue a ordem alfabética das oficinas (Antônio, Fabiano, Marcelo...)
+export const CORES_OFICINA = ['#C27219', '#5E6B3A', '#911C19', '#8C4A5E', '#3F5E6B', '#6B3F2A'];
 export function corOficina(oficinas: Oficina[], id: string | null) {
   const i = oficinas.findIndex((o) => o.id === id);
-  return i < 0 ? '#6E6887' : CORES_OFICINA[i % CORES_OFICINA.length];
+  return i < 0 ? '#7A625C' : CORES_OFICINA[i % CORES_OFICINA.length];
 }

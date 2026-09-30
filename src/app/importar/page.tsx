@@ -118,18 +118,18 @@ export default function ImportarPage() {
             </div>
             <div className="mt-4 flex flex-col gap-2.5 text-[15px]">
               <label className="flex items-center gap-3">
-                <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={op.criarCadastros} onChange={(e) => setOp({ ...op, criarCadastros: e.target.checked })} />
+                <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={op.criarCadastros} onChange={(e) => setOp({ ...op, criarCadastros: e.target.checked })} />
                 Cadastrar automaticamente oficinas e modelos que ainda não existem
               </label>
               {tipo === 'entradas' && mapa?.idx.valor_unitario !== undefined && (
                 <label className="flex items-center gap-3">
-                  <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={op.usarValorPlanilha} onChange={(e) => setOp({ ...op, usarValorPlanilha: e.target.checked })} />
+                  <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={op.usarValorPlanilha} onChange={(e) => setOp({ ...op, usarValorPlanilha: e.target.checked })} />
                   Manter o valor unitário do arquivo (desmarque para recalcular pela tabela de preços)
                 </label>
               )}
               {cont.dup > 0 && (
                 <label className="flex items-center gap-3">
-                  <input type="checkbox" className="h-5 w-5 accent-[#231F35]" checked={op.incluirDuplicadas} onChange={(e) => setOp({ ...op, incluirDuplicadas: e.target.checked })} />
+                  <input type="checkbox" className="h-5 w-5 accent-[#2A1614]" checked={op.incluirDuplicadas} onChange={(e) => setOp({ ...op, incluirDuplicadas: e.target.checked })} />
                   Importar também as {cont.dup} linhas que parecem duplicadas
                 </label>
               )}
@@ -147,7 +147,7 @@ export default function ImportarPage() {
                 {cont.novasOf > 0 && <span>{cont.novasOf} oficinas novas</span>}
                 {cont.novosMod > 0 && <span>{cont.novosMod} modelos novos</span>}
                 <label className="ml-auto flex items-center gap-2 text-[14px]">
-                  <input type="checkbox" className="h-4 w-4 accent-[#231F35]" checked={soProblemas} onChange={(e) => setSoProblemas(e.target.checked)} />
+                  <input type="checkbox" className="h-4 w-4 accent-[#2A1614]" checked={soProblemas} onChange={(e) => setSoProblemas(e.target.checked)} />
                   Só problemas
                 </label>
               </div>

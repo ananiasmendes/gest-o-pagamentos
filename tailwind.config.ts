@@ -5,21 +5,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        papel: '#F4F3F8',
+        papel: '#FBF6F2',
         tecido: '#FFFFFF',
-        tinta: '#231F35',
-        linha: '#6E6887',
-        borda: '#E3E0EC',
-        framboesa: { DEFAULT: '#B8235A', claro: '#F8E6ED', escuro: '#8E1745' },
-        agua: { DEFAULT: '#1F7A6A', claro: '#E2F2EE' },
-        ambar: { DEFAULT: '#A8671A', claro: '#FBF0DF' },
-        indigo: { DEFAULT: '#3D348B', claro: '#E8E6F5' },
+        tinta: '#2A1614',
+        linha: '#7A625C',
+        borda: '#EADFD8',
+        // nomes antigos mantidos para não mexer em todas as telas; os valores são da marca Pinho
+        framboesa: { DEFAULT: '#911C19', claro: '#FBE7DC', escuro: '#6E1512' }, // bordô
+        agua: { DEFAULT: '#2F6B4F', claro: '#E4F0E8' },                        // verde (ok, quitado)
+        ambar: { DEFAULT: '#8F5311', claro: '#F6E7D6' },                       // caramelo escuro (atenção)
+        indigo: { DEFAULT: '#6B3F2A', claro: '#F3E6DE' },                      // cacau (links, foco)
+        caramelo: '#C27219',
+        pessego: '#F2B091',
       },
       fontFamily: {
-        display: ['"Bricolage Grotesque"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['"Public Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['"Bodoni Moda"', 'Georgia', 'serif'],
+        sans: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
-      borderRadius: { etiqueta: '14px' },
+      borderRadius: { etiqueta: '16px' },
     },
   },
   plugins: [],

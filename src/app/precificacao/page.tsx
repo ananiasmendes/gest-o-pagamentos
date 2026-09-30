@@ -216,7 +216,7 @@ export default function PrecificacaoPage() {
               </Selecao>
             </Campo>
             <label className="flex h-11 items-center gap-2 text-[14px]">
-              <input type="checkbox" className="h-4 w-4 accent-[#231F35]" checked={soProblemas} onChange={(e) => setSoProblemas(e.target.checked)} />
+              <input type="checkbox" className="h-4 w-4 accent-[#2A1614]" checked={soProblemas} onChange={(e) => setSoProblemas(e.target.checked)} />
               Só abaixo da meta ou com pendência
             </label>
           </div>
@@ -321,7 +321,7 @@ export default function PrecificacaoPage() {
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 pl-2 text-[14px]">
                       {([['inclui_imposto', 'Imposto'], ['inclui_comissao', 'Comissão'], ['inclui_frete', 'Frete']] as const).map(([campo, rot]) => (
                         <label key={campo} className="flex items-center gap-1.5">
-                          <input type="checkbox" className="h-4 w-4 accent-[#231F35]" checked={t[campo]} onChange={(e) => salvarTabela(t, { [campo]: e.target.checked })} />{rot}
+                          <input type="checkbox" className="h-4 w-4 accent-[#2A1614]" checked={t[campo]} onChange={(e) => salvarTabela(t, { [campo]: e.target.checked })} />{rot}
                         </label>
                       ))}
                       <span className="num ml-auto text-linha">total {pctTxt(percentualTabela(t, params))} do preço</span>
@@ -417,7 +417,7 @@ function Detalhe({ c, lucro, params, rateio, onUsarPreco, onSemCostura }: {
           <span className="num">{R(c.costura, 4)}</span>
         </div>
         <label className="flex items-center gap-2 text-[13px] text-linha">
-          <input type="checkbox" className="h-4 w-4 accent-[#231F35]" checked={!!c.modelo.sem_costura} onChange={(e) => onSemCostura(e.target.checked)} />
+          <input type="checkbox" className="h-4 w-4 accent-[#2A1614]" checked={!!c.modelo.sem_costura} onChange={(e) => onSemCostura(e.target.checked)} />
           Peça comprada pronta, sem costura
         </label>
       </div>

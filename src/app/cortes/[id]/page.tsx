@@ -306,7 +306,7 @@ export default function CortePage() {
                   <li key={l.insumo.id} className={cx('py-3', !inc && 'opacity-50')}>
                     <div className="flex items-start justify-between gap-3">
                       <label className="flex cursor-pointer items-start gap-3">
-                        <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[#231F35]" checked={inc} onChange={() => alternarIncluido(l)} />
+                        <input type="checkbox" className="mt-0.5 h-5 w-5 accent-[#2A1614]" checked={inc} onChange={() => alternarIncluido(l)} />
                         <span>
                           <span className="block font-semibold">{l.insumo.nome}{l.peloRisco && <span className="ml-1.5 text-[12px] font-medium text-indigo">pelo risco</span>}</span>
                           <span className="block text-[12px] text-linha">consumo {textoConsumo(l.consumoTotal, l.insumo)}</span>
