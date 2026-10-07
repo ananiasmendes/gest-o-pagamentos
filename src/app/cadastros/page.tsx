@@ -79,12 +79,12 @@ export default function CadastrosPage() {
     if (!confirm(`Todas as entradas de "${de?.nome}" passam para "${para?.nome}" (os valores já lançados não mudam) e "${de?.nome}" é apagado. Continuar?`)) return;
     const r1 = await supabase.from('entradas').update({ modelo_id: juntar.para }).eq('modelo_id', juntar.de);
     if (r1.error) { avisar(mensagemErro(r1.error), 'erro'); return; }
-    // estoque e pedidos acompanham o modelo (se as tabelas ainda não existem, o erro é ignorado)
-    for (const t of ['sku_bling', 'pedido_itens', 'sacola', 'estoque_mov']) await supabase.from(t).update({ modelo_id: juntar.para }).eq('modelo_id', juntar.de);
+    // cortes, estoque e pedidos acompanham o modelo (se alguma tabela ainda não existe, o erro é ignorado)
+    for (const t of ['corte_modelos', 'sku_bling', 'pedido_itens', 'sacola', 'estoque_mov']) await supabase.from(t).update({ modelo_id: juntar.para }).eq('modelo_id', juntar.de);
     const r2 = await supabase.from('modelos').delete().eq('id', juntar.de);
     if (r2.error) { avisar(mensagemErro(r2.error), 'erro'); return; }
     avisar(`"${de?.nome}" juntado em "${para?.nome}".`);
-    setJuntar(null); recarregar(['modelos', 'precos', 'entradas']);
+    setJuntar(null); recarregar();
   }
 
   if (carregando) return <Carregando />;
