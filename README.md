@@ -98,6 +98,32 @@ Se o site abrir a aba Cortes com o aviso "Falta criar as tabelas de cortes no ba
 1. No Supabase (SQL Editor › New query), rode `supabase/precificacao.sql` e depois `supabase/precificacao_seed.sql`. O seed traz da planilha "Fichas de composição 2026" os preços da matéria-prima, as fichas técnicas atuais, os preços de venda, os custos fixos e percentuais, os preços de costura do Fabiano e o ajuste de R$ 96,60 do Antônio. Pode rodar de novo sem duplicar.
 2. No GitHub, **Add file › Upload files**, arraste o conteúdo do zip da atualização e faça o commit. A Vercel publica sozinha.
 
+## Atualização: separação de pedidos, estoque e Bling
+
+Três telas novas, na área **Pedidos**:
+
+**Separação.** Um card para cada pedido de venda em aberto no Bling. Cada item mostra quanto já está na sacola, quanto dá para pegar na prateleira agora (botão "Pegar") e quanto ainda falta produzir. O pedido mais antigo tem prioridade sobre o estoque. Com a sacola completa aparece o botão "Pedido pronto", que muda a situação do pedido no Bling para "Separado". Itens "Diversos" (saldo) pedem que se escolha quais peças entraram.
+
+**Estoque.** Por modelo e tamanho: o que está livre para vender, o que está em sacola e o que os pedidos em aberto esperam. O botão "Contar" corrige a quantidade da prateleira.
+
+**Integração Bling.** Conexão, endereços para o aplicativo e escolha das situações.
+
+### Como o estoque é calculado
+
+Prateleira = contagens + Entradas de costura lançadas depois que o `separacao.sql` foi rodado − peças que foram para sacolas. Peça em sacola continua na fábrica, mas já não conta como disponível. Pedido cancelado no Bling devolve as peças para a prateleira; pedido atendido dá baixa no que ainda não tinha sido marcado.
+
+### Como colocar no ar
+
+1. **Banco.** No Supabase, SQL Editor › New query, cole `supabase/separacao.sql` e clique em Run. O resultado final lista os códigos do Bling que não têm modelo no sistema; o esperado é uma lista vazia.
+2. **Aplicativo no Bling.** Em Central de Extensões › Área do Integrador › Criar aplicativo, crie um aplicativo de uso próprio. Em **Link de redirecionamento**, cole o endereço mostrado na tela Integração Bling (termina em `/api/bling/callback`). Na lista de escopos, adicione os de Pedidos de Venda (leitura e alteração de situação). Depois de salvar, a aba Informações do app mostra o Client Id e o Client Secret.
+3. **Vercel.** Em Settings › Environment Variables, cadastre e faça um novo deploy:
+   - `BLING_CLIENT_ID` e `BLING_CLIENT_SECRET`: do aplicativo criado no passo 2;
+   - `SUPABASE_SERVICE_ROLE_KEY`: em Supabase › Project Settings › API, a chave **service_role**. Ela dá acesso total ao banco: cadastre só na Vercel e nunca a coloque em arquivo do projeto.
+4. **Conectar.** Na tela Integração Bling, toque em "Conectar ao Bling" e autorize.
+5. **Situações.** No Bling, crie a situação "Separado" nos pedidos de venda. Na tela Integração Bling, toque em "Reler do Bling", marque as situações que viram cards (em aberto, em andamento) e escolha "Separado" como destino do "Pedido pronto".
+6. **Contagem inicial.** Na tela Estoque, conte o que há na prateleira de cada modelo. O que já está em sacola entra pela tela de Separação.
+7. **Webhook (opcional).** Na aba Webhooks do aplicativo no Bling, cadastre o endereço que termina em `/api/bling/webhook` para o recurso Pedido de Venda. Com ele o pedido novo aparece em segundos; sem ele, os pedidos chegam ao abrir a tela de Separação e a cada 2 minutos.
+
 ## Segurança
 
 Só quem sabe o PIN acessa o sistema. As tabelas têm Row Level Security: sem login, o banco não entrega nem aceita nada, mesmo que alguém descubra a chave anon, que é pública por natureza.
@@ -115,6 +141,7 @@ supabase/cortes.sql    tabelas do módulo de cortes
 supabase/cortes_seed.sql  cores, insumos e ficha técnica da planilha de corte
 supabase/precificacao.sql       tabelas e colunas da precificação e dos ajustes
 supabase/precificacao_seed.sql  dados da planilha de fichas de composição 2026
+supabase/separacao.sql          tabelas de pedidos, sacola e estoque + códigos do Bling
 supabase/limpar_duplicados.sql  remove linhas repetidas se o seed.sql for rodado mais de uma vez
 src/app/               uma pasta por tela
 src/components/        interface: casca do app, filtros, formulários
@@ -123,4 +150,7 @@ src/lib/importer.ts    leitura, validação e gravação das importações
 src/lib/precos.ts      busca do preço vigente em uma data
 src/lib/cortes/        leitura do risco, cálculos do corte e PDFs
 src/lib/precificacao.ts  custo por peça e preço de venda
+src/lib/separacao.ts     estoque da prateleira e distribuição entre os pedidos
+src/lib/servidor/bling.ts  conversa com o Bling (só roda no servidor)
+src/app/api/bling/       rotas do servidor: conexão, sincronização, pedido pronto e webhook
 ```

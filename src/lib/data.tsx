@@ -3,19 +3,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { supabase } from './supabase';
 import type {
-  Cor, Corte, CorteCor, CorteItem, CorteModelo, CustoFixo, Entrada, FichaItem, Insumo, Modelo, Oficina, Pagamento, Parametro,
-  Preco, TabelaPreco,
+  Cor, Corte, CorteCor, CorteItem, CorteModelo, CustoFixo, Entrada, EstoqueMov, FichaItem, Insumo, Modelo, Oficina, Pagamento, Parametro,
+  Pedido, PedidoItem, Preco, SacolaItem, SkuBling, TabelaPreco,
 } from './types';
 
 export type Tabela =
   | 'oficinas' | 'modelos' | 'precos' | 'entradas' | 'pagamentos'
   | 'cores' | 'insumos' | 'ficha_tecnica' | 'cortes' | 'corte_modelos' | 'corte_cores' | 'corte_itens'
-  | 'custos_fixos' | 'parametros' | 'tabelas_preco';
+  | 'custos_fixos' | 'parametros' | 'tabelas_preco'
+  | 'pedidos' | 'pedido_itens' | 'sacola' | 'estoque_mov' | 'sku_bling' | 'estoque_config';
 
 const TABELAS_PAGAMENTO: Tabela[] = ['oficinas', 'modelos', 'precos', 'entradas', 'pagamentos'];
 const TABELAS_CORTE: Tabela[] = ['cores', 'insumos', 'ficha_tecnica', 'cortes', 'corte_modelos', 'corte_cores', 'corte_itens'];
 const TABELAS_PRECO: Tabela[] = ['custos_fixos', 'parametros', 'tabelas_preco'];
 export const TABELAS_DA_PRECIFICACAO = TABELAS_PRECO;
+const TABELAS_SEPARACAO: Tabela[] = ['pedidos', 'pedido_itens', 'sacola', 'estoque_mov', 'sku_bling', 'estoque_config'];
+/** O que muda quando se separa um pedido ou chega peça: recarregue isto, não tudo. */
+export const TABELAS_DA_SEPARACAO: Tabela[] = ['pedidos', 'pedido_itens', 'sacola', 'estoque_mov', 'entradas'];
 export const TABELAS_DO_CORTE: Tabela[] = ['cortes', 'corte_modelos', 'corte_cores', 'corte_itens'];
 
 interface Dados {
@@ -23,6 +27,9 @@ interface Dados {
   cores: Cor[]; insumos: Insumo[]; ficha: FichaItem[];
   cortes: Corte[]; corteModelos: CorteModelo[]; corteCores: CorteCor[]; corteItens: CorteItem[];
   custosFixos: CustoFixo[]; parametros: Parametro[]; tabelasPreco: TabelaPreco[];
+  pedidos: Pedido[]; pedidoItens: PedidoItem[]; sacola: SacolaItem[]; estoqueMov: EstoqueMov[]; skusBling: SkuBling[];
+  /** a partir de quando as entradas somam no estoque */
+  estoqueInicio: string | null;
 }
 
 interface Ctx extends Dados {
@@ -32,6 +39,8 @@ interface Ctx extends Dados {
   cortesProntos: boolean;
   /** falso enquanto o precificacao.sql ainda não foi rodado */
   precificacaoPronta: boolean;
+  /** falso enquanto o separacao.sql ainda não foi rodado */
+  separacaoPronta: boolean;
   parametro: (chave: string, padrao?: number) => number;
   recarregar: (tabelas?: Tabela[]) => Promise<void>;
   oficina: (id: string) => Oficina | undefined;
@@ -47,6 +56,8 @@ const ORDEM: Record<Tabela, string[]> = {
   cores: ['nome', 'id'], insumos: ['nome', 'id'], ficha_tecnica: ['modelo_id', 'insumo_id'],
   cortes: ['numero'], corte_modelos: ['corte_id', 'ordem', 'id'], corte_cores: ['corte_id', 'ordem', 'id'], corte_itens: ['corte_id', 'chave'],
   custos_fixos: ['ordem', 'id'], parametros: ['chave'], tabelas_preco: ['ordem', 'nome'],
+  pedidos: ['data', 'id'], pedido_itens: ['pedido_id', 'ordem', 'id'], sacola: ['pedido_id', 'id'],
+  estoque_mov: ['criado_em', 'id'], sku_bling: ['sku'], estoque_config: ['id'],
 };
 
 /** O Supabase devolve no máximo 1000 linhas por vez; aqui buscamos tudo em páginas. */
@@ -77,6 +88,7 @@ const VAZIO: Dados = {
   oficinas: [], modelos: [], precos: [], entradas: [], pagamentos: [],
   cores: [], insumos: [], ficha: [], cortes: [], corteModelos: [], corteCores: [], corteItens: [],
   custosFixos: [], parametros: [], tabelasPreco: [],
+  pedidos: [], pedidoItens: [], sacola: [], estoqueMov: [], skusBling: [], estoqueInicio: null,
 };
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -85,15 +97,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [erro, setErro] = useState<string | null>(null);
   const [cortesProntos, setCortesProntos] = useState(true);
   const [precificacaoPronta, setPrecificacaoPronta] = useState(true);
+  const [separacaoPronta, setSeparacaoPronta] = useState(true);
 
   const recarregar = useCallback(async (tabelas?: Tabela[]) => {
-    const alvo: Tabela[] = tabelas ?? [...TABELAS_PAGAMENTO, ...TABELAS_CORTE, ...TABELAS_PRECO];
+    const alvo: Tabela[] = tabelas ?? [...TABELAS_PAGAMENTO, ...TABELAS_CORTE, ...TABELAS_PRECO, ...TABELAS_SEPARACAO];
     try {
       const res = await Promise.all(alvo.map(async (t) => {
         try { return await buscarTudo<Record<string, unknown>>(t); }
         catch (e) {
           if (TABELAS_CORTE.includes(t) && tabelaInexistente(e)) { setCortesProntos(false); return []; }
           if (TABELAS_PRECO.includes(t) && tabelaInexistente(e)) { setPrecificacaoPronta(false); return []; }
+          if (TABELAS_SEPARACAO.includes(t) && tabelaInexistente(e)) { setSeparacaoPronta(false); return []; }
           throw e;
         }
       }));
@@ -118,6 +132,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             case 'custos_fixos': n.custosFixos = numeros(rows as CustoFixo[], ['valor']); break;
             case 'parametros': n.parametros = numeros(rows as Parametro[], ['valor']); break;
             case 'tabelas_preco': n.tabelasPreco = numeros(rows as TabelaPreco[], ['lucro']); break;
+            case 'pedidos': n.pedidos = numeros(rows as Pedido[], ['id', 'numero', 'situacao_id', 'situacao_anterior', 'total', 'total_produtos']); break;
+            case 'pedido_itens': n.pedidoItens = numeros(rows as PedidoItem[], ['id', 'pedido_id', 'quantidade', 'ordem']); break;
+            case 'sacola': n.sacola = numeros(rows as SacolaItem[], ['pedido_id', 'item_id', 'quantidade']); break;
+            case 'estoque_mov': n.estoqueMov = numeros(rows as EstoqueMov[], ['quantidade']); break;
+            case 'sku_bling': n.skusBling = rows as SkuBling[]; break;
+            case 'estoque_config': n.estoqueInicio = (rows[0] as { inicio?: string } | undefined)?.inicio ?? null; break;
           }
         });
         return n;
@@ -136,14 +156,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const ofi = new Map(dados.oficinas.map((o) => [o.id, o]));
     const mod = new Map(dados.modelos.map((m) => [m.id, m]));
     return {
-      ...dados, carregando, erro, cortesProntos, precificacaoPronta, recarregar,
+      ...dados, carregando, erro, cortesProntos, precificacaoPronta, separacaoPronta, recarregar,
       parametro: (chave, padrao = 0) => dados.parametros.find((p) => p.chave === chave)?.valor ?? padrao,
       oficina: (id) => ofi.get(id),
       modelo: (id) => (id ? mod.get(id) : undefined),
       nomeOficina: (id) => (id ? ofi.get(id)?.nome ?? '—' : 'Fábrica'),
       nomeModelo: (e) => (e.operacao === 'Corte' ? `Corte de ${e.tipo.toLowerCase()}` : mod.get(e.modelo_id ?? '')?.nome ?? '—'),
     };
-  }, [dados, carregando, erro, cortesProntos, precificacaoPronta, recarregar]);
+  }, [dados, carregando, erro, cortesProntos, precificacaoPronta, separacaoPronta, recarregar]);
 
   return <DataCtx.Provider value={valor}>{children}</DataCtx.Provider>;
 }

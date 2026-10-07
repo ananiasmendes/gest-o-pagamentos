@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, PackagePlus, ClipboardList, Wallet, ScrollText, Tags, Users, Upload, MoreHorizontal, LogOut,
-  Scissors, FilePlus2, BookOpen, Boxes, Calculator,
+  Scissors, FilePlus2, BookOpen, Boxes, Calculator, ShoppingBag, Warehouse, Plug,
 } from 'lucide-react';
 import { supabase, supabaseConfigurado, LOGIN_EMAIL, mensagemErro } from '@/lib/supabase';
 import { DataProvider, useData } from '@/lib/data';
@@ -14,7 +14,7 @@ import { AvisosProvider, Botao, Campo, Texto, Modal, cx } from './ui';
 
 type ItemNav = { href: string; rotulo: string; icone: typeof LayoutDashboard };
 
-const GRUPOS: { area: 'pagamentos' | 'cortes' | 'geral'; titulo: string; itens: ItemNav[] }[] = [
+const GRUPOS: { area: 'pagamentos' | 'cortes' | 'pedidos' | 'geral'; titulo: string; itens: ItemNav[] }[] = [
   {
     area: 'pagamentos', titulo: 'Pagamentos',
     itens: [
@@ -37,6 +37,14 @@ const GRUPOS: { area: 'pagamentos' | 'cortes' | 'geral'; titulo: string; itens: 
     ],
   },
   {
+    area: 'pedidos', titulo: 'Pedidos',
+    itens: [
+      { href: '/separacao', rotulo: 'Separação', icone: ShoppingBag },
+      { href: '/estoque', rotulo: 'Estoque', icone: Warehouse },
+      { href: '/bling', rotulo: 'Integração Bling', icone: Plug },
+    ],
+  },
+  {
     area: 'geral', titulo: 'Cadastros',
     itens: [
       { href: '/cadastros', rotulo: 'Oficinas e modelos', icone: Users },
@@ -45,12 +53,19 @@ const GRUPOS: { area: 'pagamentos' | 'cortes' | 'geral'; titulo: string; itens: 
   },
 ];
 const NAV = GRUPOS.flatMap((g) => g.itens);
-/** Barra inferior do celular: 4 atalhos por área, o do meio em destaque. */
+/** Barra inferior do celular: os atalhos de cada área, um deles em destaque. */
 const NAV_CELULAR = {
   pagamentos: { itens: ['/', '/entradas', '/lancar', '/pagamentos'], destaque: '/lancar' },
   cortes: { itens: ['/cortes', '/ficha', '/cortes/novo', '/precificacao'], destaque: '/cortes/novo' },
+  pedidos: { itens: ['/estoque', '/separacao', '/bling'], destaque: '/separacao' },
 };
-const areaDe = (path: string) => (/^\/(cortes|ficha|insumos|precificacao)/.test(path) ? 'cortes' : 'pagamentos');
+const AREAS = [
+  { area: 'pagamentos', rotulo: 'Pagamentos', href: '/' },
+  { area: 'cortes', rotulo: 'Produção', href: '/cortes' },
+  { area: 'pedidos', rotulo: 'Pedidos', href: '/separacao' },
+] as const;
+const areaDe = (path: string) =>
+  /^\/(cortes|ficha|insumos|precificacao)/.test(path) ? 'cortes' : /^\/(separacao|estoque|bling)/.test(path) ? 'pedidos' : 'pagamentos';
 
 function Marca({ grande }: { grande?: boolean }) {
   return (
@@ -167,11 +182,11 @@ function Navegacao({ children }: { children: ReactNode }) {
 
       <main className="min-w-0 flex-1 px-4 pb-28 pt-4 md:px-8 md:pb-10 md:pt-8">
         {/* Celular: troca de área */}
-        <div className="mb-4 grid grid-cols-2 rounded-full border border-borda bg-tecido p-1 md:hidden" role="tablist" aria-label="Área">
-          {(['pagamentos', 'cortes'] as const).map((a) => (
-            <Link key={a} href={a === 'pagamentos' ? '/' : '/cortes'} role="tab" aria-selected={area === a}
-              className={cx('rounded-full py-2 text-center text-sm font-semibold', area === a ? 'bg-tinta text-white' : 'text-linha')}>
-              {a === 'pagamentos' ? 'Pagamentos' : 'Produção'}
+        <div className="mb-4 grid grid-cols-3 rounded-full border border-borda bg-tecido p-1 md:hidden" role="tablist" aria-label="Área">
+          {AREAS.map((a) => (
+            <Link key={a.area} href={a.href} role="tab" aria-selected={area === a.area}
+              className={cx('rounded-full py-2 text-center text-sm font-semibold', area === a.area ? 'bg-tinta text-white' : 'text-linha')}>
+              {a.rotulo}
             </Link>
           ))}
         </div>
@@ -180,13 +195,13 @@ function Navegacao({ children }: { children: ReactNode }) {
 
       {/* Celular: barra inferior com o botão principal no centro */}
       <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-borda bg-tecido/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5 items-end px-2 pt-1.5">
+        <div className="mx-auto grid max-w-md items-end px-2 pt-1.5" style={{ gridTemplateColumns: `repeat(${itensCel.length + 1}, minmax(0, 1fr))` }}>
           {itensCel.map(({ href, rotulo, icone: I }) =>
             href === cel.destaque ? (
               <Link key={href} href={href} aria-label={rotulo} className="flex flex-col items-center pb-2">
                 <span className={cx('-mt-5 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg',
                   ativo(href) ? 'bg-framboesa-escuro' : 'bg-framboesa')}><I size={26} /></span>
-                <span className="mt-0.5 text-[11px] font-semibold">{area === 'cortes' ? 'Novo' : rotulo}</span>
+                <span className="mt-0.5 text-[11px] font-semibold">{area === 'cortes' ? 'Novo' : area === 'pedidos' ? 'Separar' : rotulo}</span>
               </Link>
             ) : (
               <Link key={href} href={href} className={cx('flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold', ativo(href) ? 'text-framboesa' : 'text-linha')}>

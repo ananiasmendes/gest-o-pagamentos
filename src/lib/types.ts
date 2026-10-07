@@ -19,11 +19,13 @@ export interface Entrada {
   modelo_id: string | null; tamanho: string | null; quantidade: number;
   valor_unitario: number; valor_total: number; observacao: string | null;
   corte_id?: string | null;
+  /** quando o lançamento foi gravado (define o que entra no estoque) */
+  created_at?: string;
 }
 export type TipoPagamento = 'pagamento' | 'ajuste';
 export interface Pagamento { id: string; data: string; oficina_id: string; valor: number; observacao: string | null; tipo?: TipoPagamento }
 
-export type NovaEntrada = Omit<Entrada, 'id' | 'valor_total' | 'corte_id'>;
+export type NovaEntrada = Omit<Entrada, 'id' | 'valor_total' | 'corte_id' | 'created_at'>;
 export type NovoPagamento = Omit<Pagamento, 'id'>;
 
 // ---------------- Cortes ------------------------------------------------
@@ -69,3 +71,21 @@ export interface Parametro { chave: string; valor: number }
 export interface TabelaPreco {
   id: string; nome: string; lucro: number; inclui_imposto: boolean; inclui_comissao: boolean; inclui_frete: boolean; ordem: number;
 }
+
+// ---------------- Separação de pedidos e estoque ---------------------------
+
+export type StatusPedido = 'aberto' | 'pronto' | 'enviado' | 'cancelado';
+export interface Pedido {
+  id: number; numero: number | null; cliente: string; data: string;
+  situacao_id: number | null; situacao_anterior: number | null; status: StatusPedido;
+  total: number | null; total_produtos: number | null; observacoes: string | null;
+  pronto_em: string | null; bling_marcado: boolean; baixa_direta: boolean; sincronizado_em: string;
+}
+export interface PedidoItem {
+  id: number; pedido_id: number; sku: string | null; descricao: string; quantidade: number;
+  /** nulo = item manual ("Diversos" ou código que o sistema não conhece) */
+  modelo_id: string | null; tamanho: string | null; ordem: number;
+}
+export interface SacolaItem { id: string; pedido_id: number; item_id: number; modelo_id: string; tamanho: string; quantidade: number }
+export interface EstoqueMov { id: string; criado_em: string; modelo_id: string; tamanho: string; quantidade: number; motivo: 'contagem' | 'ajuste'; observacao: string | null }
+export interface SkuBling { sku: string; modelo_id: string; tamanho: string }
