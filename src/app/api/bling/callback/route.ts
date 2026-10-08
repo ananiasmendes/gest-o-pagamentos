@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { concluirConexao } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const maxDuration = 30;
 
 /** O Bling manda o usuário de volta para cá depois que ele autoriza o aplicativo. */

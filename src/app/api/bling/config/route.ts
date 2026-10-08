@@ -1,6 +1,7 @@
 import { ErroBling, carregarSituacoes, exigirLogin, gravarConfig, respostaErro } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const maxDuration = 30;
 
 /** Grava quais situações viram cards e qual é a de "Separado". Com { recarregar: true }, relê as situações da conta. */

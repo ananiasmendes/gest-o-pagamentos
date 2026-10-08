@@ -1,6 +1,7 @@
 import { exigirLogin, lerConfig, respostaErro, variaveisFaltando, SITUACOES_PADRAO } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 /** Estado da conexão com o Bling, sem nenhum token. */
 export async function GET(req: Request) {

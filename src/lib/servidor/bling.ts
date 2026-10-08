@@ -38,7 +38,11 @@ let _admin: SupabaseClient | null = null;
 export function admin(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !chave) throw new ErroBling('config', 'Falta cadastrar SUPABASE_SERVICE_ROLE_KEY na Vercel.', 500);
-  if (!_admin) _admin = createClient(url, chave, { auth: { persistSession: false, autoRefreshToken: false } });
+  // cache: 'no-store' — o Next guarda respostas de fetch por padrão, e a configuração lida aqui muda a cada conexão
+  if (!_admin) _admin = createClient(url, chave, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (entrada: RequestInfo | URL, init?: RequestInit) => fetch(entrada, { ...init, cache: 'no-store' }) },
+  });
   return _admin;
 }
 

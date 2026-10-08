@@ -1,6 +1,7 @@
 import { ErroBling, exigirLogin, gravarConfig, respostaErro, sincronizar } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const maxDuration = 60;
 
 /** Traz do Bling os pedidos novos e o que mudou. A tela chama de novo enquanto "restantes" for maior que zero. */

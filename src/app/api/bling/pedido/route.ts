@@ -1,6 +1,7 @@
 import { ErroBling, exigirLogin, marcarPronto, reabrirPedido, respostaErro } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const maxDuration = 30;
 
 /** { id, acao: 'pronto' | 'reabrir' } */

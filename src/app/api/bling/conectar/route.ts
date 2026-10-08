@@ -1,6 +1,7 @@
 import { ErroBling, desconectar, exigirLogin, iniciarConexao, respostaErro, variaveisFaltando } from '@/lib/servidor/bling';
 
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 /** Devolve o endereço do Bling para onde o navegador deve ir para autorizar o aplicativo. */
 export async function POST(req: Request) {
