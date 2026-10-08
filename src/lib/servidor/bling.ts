@@ -114,7 +114,9 @@ export async function concluirConexao(code: string, state: string) {
   const cfg = await lerConfig();
   const idade = cfg.oauth_state_em ? Date.now() - Date.parse(cfg.oauth_state_em) : Infinity;
   if (!cfg.oauth_state || cfg.oauth_state !== state || idade > 10 * 60 * 1000) {
-    throw new ErroBling('state', 'O pedido de conexão expirou. Toque em "Conectar ao Bling" de novo.');
+    // detalhe para diagnóstico (o state é de uso único e não dá acesso a nada)
+    const det = `recebido ${state.slice(0, 6)}… (${state.length}), guardado ${cfg.oauth_state ? cfg.oauth_state.slice(0, 6) + '…' : 'nenhum'}, ${Math.round(idade / 1000)} s`;
+    throw new ErroBling('state', `O pedido de conexão expirou. Toque em "Conectar ao Bling" de novo. [${det}]`);
   }
   await gravarConfig({ oauth_state: null, oauth_state_em: null });
   await pedirToken({ grant_type: 'authorization_code', code });
