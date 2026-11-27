@@ -6,7 +6,7 @@
 html, body { background: #FBF6F2; color: #2A1614; }
 body { font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
 .num { font-variant-numeric: tabular-nums; }
-h1, h2, h3, .font-display { font-family: "Bodoni Moda", Georgia, serif; font-optical-sizing: auto; letter-spacing: 0; }
+h1, h2, h3, .font-display { font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif; font-optical-sizing: auto; letter-spacing: -0.015em; }
 
 /* A etiqueta costurada: o único elemento "decorativo" do sistema. */
 .etiqueta { position: relative; border-radius: 16px; }

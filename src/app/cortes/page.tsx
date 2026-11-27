@@ -9,6 +9,7 @@ import { dataBR, dec, hoje, inicioMes, num, pct } from '@/lib/format';
 import type { StatusCorte } from '@/lib/types';
 import { Cabecalho, Carregando, Painel, Pilulas, Vazio, classeBotao } from '@/components/ui';
 import { AvisoMigracao, ChipStatus } from '@/components/cortes/comum';
+import EmProducao from '@/components/cortes/EmProducao';
 
 type Filtro = 'andamento' | 'planejado' | 'concluido' | 'todos';
 
@@ -74,6 +75,9 @@ export default function CortesPage() {
         </Painel>
       )}
 
+      <EmProducao />
+
+      <h2 className="mb-3 text-[20px] font-bold">Cortes</h2>
       <div className="mb-4">
         <Pilulas rotulo="Filtro" valor={filtro} onChange={setFiltro} opcoes={[
           { valor: 'andamento', rotulo: `Em andamento (${contagem('andamento')})` },

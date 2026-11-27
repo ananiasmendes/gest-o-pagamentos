@@ -3,20 +3,21 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Check, FileDown, Pencil, Share2, Trash2 } from 'lucide-react';
+import { Check, FileText, Pencil, Trash2 } from 'lucide-react';
 import { useData, corOficina, TABELAS_DO_CORTE } from '@/lib/data';
 import { supabase, mensagemErro } from '@/lib/supabase';
 import {
-  calcularEtiquetas, calcularMateriais, calcularRetornos, kgPorFolhaDoRisco, textoCompra, textoConsumo,
+  calcularEtiquetas, calcularMateriais, calcularOrdemProducao, calcularRetornos, kgPorFolhaDoRisco, textoCompra, textoConsumo,
   COMPOSICAO_POR_FOLHA, TAGS_POR_FOLHA, type LinhaMaterial,
 } from '@/lib/cortes/calc';
-import { entregarPdf, pdfPedidoEtiquetas, pdfRomaneio, podeCompartilharArquivo, type BlocoRomaneio, type Cabecalho as CabPdf } from '@/lib/cortes/pdf';
+import { pdfOrdemProducao, pdfPedidoEtiquetas, pdfRomaneio, porPeca, prepararPdf, type BlocoRomaneio, type Cabecalho as CabPdf, type PdfPronto } from '@/lib/cortes/pdf';
+import VisualizadorPdf from '@/components/VisualizadorPdf';
 import { dataBR, dec, hoje, num, pct } from '@/lib/format';
 import { STATUS_CORTE, type StatusCorte } from '@/lib/types';
 import { Botao, Cabecalho, Campo, Carregando, Modal, Painel, Pilulas, Selecao, Texto, Vazio, classeBotao, cx, useAviso } from '@/components/ui';
 import { ChipStatus, sincronizarPagamentoCorte, useCorte } from '@/components/cortes/comum';
 
-type Aba = 'resumo' | 'material' | 'romaneio' | 'retorno';
+type Aba = 'resumo' | 'ordem' | 'material' | 'romaneio' | 'retorno';
 type EstadoItem = { incluido: boolean | null; feito: boolean };
 const PROXIMO: Partial<Record<StatusCorte, { status: StatusCorte; rotulo: string }>> = {
   planejado: { status: 'cortado', rotulo: 'Marcar como cortado' },
@@ -49,6 +50,8 @@ export default function CortePage() {
   const [locais, setLocais] = useState<Map<string, EstadoItem>>(new Map());
   const [modalStatus, setModalStatus] = useState<{ status: StatusCorte; data_cortado: string; data_enviado: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [pdfAberto, setPdfAberto] = useState<PdfPronto | null>(null);
+  const [gerando, setGerando] = useState('');
 
   const calc = useMemo(() => {
     if (!det) return null;
@@ -58,7 +61,8 @@ export default function CortePage() {
     const retorno = calcularRetornos(cortes, corteModelos, corteCores, entradas).porCorte.get(corte.id) ?? null;
     const semFicha = cms.filter((m) => !ficha.some((f) => f.modelo_id === m.modelo_id));
     const oficinasDoCorte = Array.from(new Set(cms.map((m) => m.oficina_id)));
-    return { materiais, etiquetas, retorno, semFicha, oficinasDoCorte };
+    const ordem = calcularOrdemProducao(corte, cms, ccs, ficha, insumos, pecas);
+    return { materiais, etiquetas, retorno, semFicha, oficinasDoCorte, ordem };
   }, [det, ficha, insumos, cortes, corteModelos, corteCores, entradas]);
 
   if (carregando) return <Carregando />;
@@ -107,17 +111,20 @@ export default function CortePage() {
   };
   const nomeArq = (s: string) => `${s} ${corte.nome}`.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\- ]+/g, '').replace(/\s+/g, '-') + '.pdf';
 
-  async function gerarPedido(modo: 'baixar' | 'compartilhar') {
-    try {
-      const doc = await pdfPedidoEtiquetas({
-        cab: cab('Pedido de material'), cores: coresPdf, linhas: materiaisPedido, notaTecido: notaTecido(),
-        tamanhos: pecas.tamanhos, composicao: calc!.etiquetas.composicao,
-        tags: calc!.etiquetas.tags.map((t) => ({ ...t, modelo: nomeMod(t.modelo_id) })),
-        feito: (k) => item(k).feito,
-      });
-      await entregarPdf(doc, nomeArq('pedido-e-etiquetas'), modo);
-    } catch (e) { avisar(`Não foi possível gerar o PDF: ${(e as Error).message}`, 'erro'); }
+  /** Gera o PDF e abre no visualizador do próprio site. */
+  async function abrirPdf(chave: string, gerar: () => Promise<Parameters<typeof prepararPdf>[0]>, nome: string, titulo: string) {
+    setGerando(chave);
+    try { setPdfAberto(prepararPdf(await gerar(), nomeArq(nome), `${titulo} · ${corte.nome}`)); }
+    catch (e) { avisar(`Não foi possível gerar o PDF: ${(e as Error).message}`, 'erro'); }
+    finally { setGerando(''); }
   }
+
+  const verPedido = () => abrirPdf('pedido', () => pdfPedidoEtiquetas({
+    cab: cab('Pedido de material'), cores: coresPdf, linhas: materiaisPedido, notaTecido: notaTecido(),
+    tamanhos: pecas.tamanhos, composicao: calc!.etiquetas.composicao,
+    tags: calc!.etiquetas.tags.map((t) => ({ ...t, modelo: nomeMod(t.modelo_id) })),
+    feito: (k) => item(k).feito,
+  }), 'pedido-e-etiquetas', 'Pedido de material e etiquetas');
 
   function blocoRomaneio(of: string | null): BlocoRomaneio {
     const doOf = cms.filter((m) => m.oficina_id === of);
@@ -128,12 +135,20 @@ export default function CortePage() {
       aviamentos: calcularMateriais(corte, cms, ccs, ficha, insumos, pecas, of).filter((l) => l.insumo.id !== corte.tecido_insumo_id),
     };
   }
-  async function gerarRomaneio(ofs: (string | null)[], modo: 'baixar' | 'compartilhar') {
-    try {
-      const doc = await pdfRomaneio({ cab: cab('Romaneio'), cores: coresPdf, tamanhos: pecas.tamanhos, blocos: ofs.map(blocoRomaneio) });
-      await entregarPdf(doc, nomeArq(ofs.length === 1 ? `romaneio-${ofs[0] ? nomeOficina(ofs[0]) : 'sem-oficina'}` : 'romaneio'), modo);
-    } catch (e) { avisar(`Não foi possível gerar o PDF: ${(e as Error).message}`, 'erro'); }
-  }
+  const verRomaneio = (ofs: (string | null)[]) => abrirPdf(`romaneio:${ofs.join(',')}`,
+    () => pdfRomaneio({ cab: cab('Romaneio'), cores: coresPdf, tamanhos: pecas.tamanhos, blocos: ofs.map(blocoRomaneio) }),
+    ofs.length === 1 ? `romaneio-${ofs[0] ? nomeOficina(ofs[0]) : 'sem-oficina'}` : 'romaneio',
+    ofs.length === 1 ? `Romaneio ${ofs[0] ? nomeOficina(ofs[0]) : 'sem oficina'}` : 'Romaneio');
+
+  const verOrdem = (ofs?: (string | null)[]) => abrirPdf(`ordem:${ofs?.join(',') ?? '*'}`, () => pdfOrdemProducao({
+    cab: cab(ofs?.length === 1 ? `Ordem de produção: ${ofs[0] ? nomeOficina(ofs[0]) : 'sem oficina'}` : 'Ordem de produção'),
+    cores: coresPdf, tamanhos: pecas.tamanhos,
+    blocos: calc!.ordem.filter((o) => !ofs || ofs.includes(o.oficina_id)).map((o) => ({
+      modelo: nomeMod(o.modelo_id), oficina: o.oficina_id ? nomeOficina(o.oficina_id) : 'sem oficina', total: o.total,
+      porTam: o.porTam, porCorTam: pecas.mct.get(o.modelo_id) ?? new Map(), materiais: o.materiais, semFicha: o.semFicha,
+    })),
+  }), ofs?.length === 1 ? `ordem-de-producao-${ofs[0] ? nomeOficina(ofs[0]) : 'sem-oficina'}` : 'ordem-de-producao',
+  ofs?.length === 1 ? `Ordem de produção ${ofs[0] ? nomeOficina(ofs[0]) : 'sem oficina'}` : 'Ordem de produção');
 
   // ---------- status e exclusão
   const abrirStatus = (status: StatusCorte) => setModalStatus({
@@ -176,7 +191,6 @@ export default function CortePage() {
     router.push('/cortes');
   }
 
-  const compartilha = podeCompartilharArquivo();
   const prox = PROXIMO[corte.status];
   const pagamentoCorte = entradas.filter((e) => e.corte_id === corte.id);
 
@@ -195,7 +209,7 @@ export default function CortePage() {
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Pilulas rotulo="Seção" valor={aba} onChange={setAba} opcoes={[
-          { valor: 'resumo', rotulo: 'Resumo' }, { valor: 'material', rotulo: 'Material e etiquetas' },
+          { valor: 'resumo', rotulo: 'Resumo' }, { valor: 'ordem', rotulo: 'Ordem de produção' }, { valor: 'material', rotulo: 'Material e etiquetas' },
           { valor: 'romaneio', rotulo: 'Romaneio' }, { valor: 'retorno', rotulo: 'Retorno' },
         ]} />
         <button className="text-sm font-semibold text-linha underline" onClick={() => abrirStatus(corte.status)}>Alterar status</button>
@@ -274,6 +288,60 @@ export default function CortePage() {
         </div>
       )}
 
+      {aba === 'ordem' && (
+        <div className="space-y-4">
+          <Painel>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-xl text-[14px] text-linha">
+                Peças e material de cada modelo, pela ficha técnica.
+                {calc.ordem.some((o) => o.materiais.some((m) => m.peloRisco)) && ' O tecido calculado pelo risco é dividido entre os modelos na proporção do consumo de cada um.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {calc.oficinasDoCorte.length > 1 && calc.oficinasDoCorte.map((of) => (
+                  <Botao key={of ?? 'x'} variante="secundario" className="h-10 px-3 text-sm" disabled={!!gerando} onClick={() => verOrdem([of])}>
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: corOficina(oficinas, of) }} />{of ? nomeOficina(of) : 'Sem oficina'}
+                  </Botao>
+                ))}
+                <Botao onClick={() => verOrdem()} disabled={!!gerando}><FileText size={17} />{gerando === 'ordem:*' ? 'Gerando…' : 'Ver PDF da ordem'}</Botao>
+              </div>
+            </div>
+          </Painel>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {calc.ordem.map((o) => (
+              <Painel key={o.modelo_id}
+                titulo={<span>{nomeMod(o.modelo_id)} <span className="text-sm font-medium text-linha">
+                  <span className="ml-1 mr-1 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: corOficina(oficinas, o.oficina_id) }} />
+                  {o.oficina_id ? nomeOficina(o.oficina_id) : 'sem oficina'}</span></span>}
+                acao={<span className="num font-display text-xl font-bold">{num(o.total)} <span className="font-sans text-xs font-medium text-linha">peças</span></span>}>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {pecas.tamanhos.filter((t) => o.porTam[t]).map((t) => (
+                    <span key={t} className="num rounded-lg bg-papel px-2.5 py-1 text-[13px]"><strong>{t}</strong> {num(o.porTam[t])}</span>
+                  ))}
+                </div>
+                {o.semFicha ? (
+                  <p className="text-[14px] text-ambar">Sem ficha técnica. <Link href={`/ficha?modelo=${o.modelo_id}`} className="font-semibold underline">Preencher</Link></p>
+                ) : (
+                  <table className="w-full text-[14px]">
+                    <thead><tr className="text-left text-[12px] text-linha">
+                      <th className="pb-1.5 font-semibold">Material</th><th className="pb-1.5 text-right font-semibold">Por peça</th><th className="pb-1.5 text-right font-semibold">Total</th>
+                    </tr></thead>
+                    <tbody className="num divide-y divide-borda">
+                      {o.materiais.map((m) => (
+                        <tr key={m.insumo.id}>
+                          <td className="py-1.5 pr-2">{m.insumo.nome}{m.peloRisco && <span className="ml-1.5 text-[11px] font-semibold text-caramelo">pelo risco</span>}</td>
+                          <td className="py-1.5 text-right text-linha">{porPeca(m.porPeca, m.insumo.unidade_consumo)}</td>
+                          <td className="py-1.5 text-right font-semibold">{textoConsumo(m.total, m.insumo)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Painel>
+            ))}
+          </div>
+        </div>
+      )}
+
       {aba === 'material' && (
         <div className="space-y-4">
           <Painel>
@@ -282,10 +350,7 @@ export default function CortePage() {
                 <div><strong className="num">{comprados}</strong> de <span className="num">{chavesCompra.length}</span> itens de material comprados</div>
                 <div><strong className="num">{impressas}</strong> de <span className="num">{chavesEtiqueta.length}</span> etiquetas impressas</div>
               </div>
-              <div className="flex gap-2">
-                <Botao onClick={() => gerarPedido('baixar')}><FileDown size={17} />PDF do pedido e etiquetas</Botao>
-                {compartilha && <Botao variante="secundario" aria-label="Compartilhar PDF" onClick={() => gerarPedido('compartilhar')}><Share2 size={17} /></Botao>}
-              </div>
+              <Botao onClick={verPedido} disabled={!!gerando}><FileText size={17} />{gerando === 'pedido' ? 'Gerando…' : 'Ver PDF do pedido e etiquetas'}</Botao>
             </div>
           </Painel>
 
@@ -368,16 +433,13 @@ export default function CortePage() {
       {aba === 'romaneio' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Botao onClick={() => gerarRomaneio(calc.oficinasDoCorte, 'baixar')}><FileDown size={17} />PDF de todas as oficinas</Botao>
+            <Botao onClick={() => verRomaneio(calc.oficinasDoCorte)} disabled={!!gerando}><FileText size={17} />Ver PDF de todas as oficinas</Botao>
           </div>
           {calc.oficinasDoCorte.map((of) => {
             const b = blocoRomaneio(of);
             return (
               <Painel key={of ?? 'x'} titulo={<span><span className="mr-2 inline-block h-3 w-3 rounded-full align-middle" style={{ background: corOficina(oficinas, of) }} />{b.oficina}</span>}
-                acao={<div className="flex gap-1.5">
-                  <Botao variante="secundario" className="h-9 px-3 text-sm" onClick={() => gerarRomaneio([of], 'baixar')}><FileDown size={15} />PDF</Botao>
-                  {compartilha && <Botao variante="secundario" className="h-9 px-3 text-sm" aria-label="Compartilhar" onClick={() => gerarRomaneio([of], 'compartilhar')}><Share2 size={15} /></Botao>}
-                </div>}>
+                acao={<Botao variante="secundario" className="h-9 px-3 text-sm" disabled={!!gerando} onClick={() => verRomaneio([of])}><FileText size={15} />Ver PDF</Botao>}>
                 <p className="num mb-3 text-[14px] text-linha">{num(b.total)} peças, {b.modelos.length} modelos</p>
                 <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
                   <table className="w-full min-w-[520px] text-[13px]">
@@ -491,6 +553,7 @@ export default function CortePage() {
           </div>
         )}
       </Modal>
+      <VisualizadorPdf pdf={pdfAberto} onFechar={() => setPdfAberto(null)} />
     </>
   );
 }

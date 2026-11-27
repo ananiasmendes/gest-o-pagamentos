@@ -25,6 +25,8 @@ async function carregarLogo() {
   return logoCache;
 }
 const num = (n: number) => n.toLocaleString('pt-BR');
+/** Consumo por peça com casas suficientes (ex.: 0,0265 kg). */
+export const porPeca = (v: number, un: string) => `${v.toLocaleString('pt-BR', { maximumFractionDigits: un === 'un' && v >= 1 ? 2 : 4 })} ${un}`;
 
 async function novoDoc(paisagem = false) {
   const { jsPDF } = await import('jspdf');
@@ -241,7 +243,75 @@ export async function pdfRomaneio(p: { cab: Cabecalho; cores: { id: string; nome
   return doc;
 }
 
+// ---------------- Ordem de produção ----------------------------------------
+
+export interface BlocoOrdem {
+  modelo: string; oficina: string; total: number;
+  porTam: Record<string, number>;
+  porCorTam: Map<string, Record<string, number>>;
+  materiais: { insumo: Insumo; porPeca: number; total: number; peloRisco: boolean }[];
+  semFicha: boolean;
+}
+
+/** Uma ordem por modelo: peças por cor e tamanho e o material que o modelo consome. */
+export async function pdfOrdemProducao(p: { cab: Cabecalho; cores: { id: string; nome: string }[]; tamanhos: string[]; blocos: BlocoOrdem[] }) {
+  const { doc, autoTable } = await novoDoc(p.cores.length > 5);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fim = () => (doc as any).lastAutoTable.finalY as number;
+  const alt = doc.internal.pageSize.getHeight();
+  let y = cabecalho(doc, p.cab);
+  p.blocos.forEach((b) => {
+    const linhasTam = p.tamanhos.filter((t) => p.cores.some((c) => b.porCorTam.get(c.id)?.[t]));
+    const precisa = 22 + (linhasTam.length + 2) * 6 + (b.materiais.length + 1) * 6;
+    if (y + Math.min(precisa, 120) > alt - 16) { doc.addPage(); y = 18; }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...BORDO);
+    doc.text(b.modelo, 14, y + 4);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...LINHA);
+    doc.text(`Oficina: ${b.oficina}  ·  ${num(b.total)} peças`, 14, y + 9.5);
+    y += 12;
+    autoTable(doc, {
+      ...estiloBase, startY: y, rowPageBreak: 'avoid',
+      head: [['Tam.', ...p.cores.map((c) => c.nome), 'Total']],
+      body: [
+        ...linhasTam.map((t) => [
+          { content: t, styles: { fontStyle: 'bold' } },
+          ...p.cores.map((c) => (b.porCorTam.get(c.id)?.[t] ? num(b.porCorTam.get(c.id)![t]) : '')),
+          num(b.porTam[t] ?? 0),
+        ]),
+        [{ content: 'Total', styles: { fontStyle: 'bold' } },
+          ...p.cores.map((c) => num(Object.values(b.porCorTam.get(c.id) ?? {}).reduce((s, v) => s + v, 0))),
+          { content: num(b.total), styles: { fontStyle: 'bold' } }],
+      ],
+      columnStyles: Object.fromEntries(p.cores.map((_, j) => [j + 1, { halign: 'right' }]).concat([[p.cores.length + 1, { halign: 'right' }]])),
+    });
+    y = fim() + 3;
+    if (b.semFicha) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(...LINHA);
+      doc.text('Modelo sem ficha técnica: material não calculado.', 14, y + 3); y += 8;
+    } else if (b.materiais.length) {
+      autoTable(doc, {
+        ...estiloBase, startY: y, tableWidth: 150, rowPageBreak: 'avoid',
+        head: [['Material', 'Por peça', 'Total']],
+        body: b.materiais.map((m) => [
+          m.insumo.nome + (m.peloRisco ? ' (pelo risco)' : ''),
+          porPeca(m.porPeca, m.insumo.unidade_consumo),
+          textoConsumo(m.total, m.insumo),
+        ]),
+        headStyles: { ...estiloBase.headStyles, fillColor: [194, 114, 25] },
+        columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right', fontStyle: 'bold' } },
+      });
+      y = fim() + 8;
+    }
+  });
+  rodape(doc);
+  return doc;
+}
+
 // ---------------- Entrega ---------------------------------------------------
+
+/** Dados para abrir o PDF dentro do site (visualizador). */
+export interface PdfPronto { blob: Blob; nome: string; titulo: string }
+export const prepararPdf = (doc: Doc, nome: string, titulo: string): PdfPronto => ({ blob: doc.output('blob'), nome, titulo });
 
 /** No celular abre o compartilhamento (WhatsApp etc.); no computador baixa o arquivo. */
 export async function entregarPdf(doc: Doc, nomeArquivo: string, modo: 'baixar' | 'compartilhar' = 'baixar') {
