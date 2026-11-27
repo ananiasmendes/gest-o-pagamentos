@@ -19,7 +19,7 @@ const config: Config = {
         pessego: '#F2B091',
       },
       fontFamily: {
-        display: ['"Bodoni Moda"', 'Georgia', 'serif'],
+        display: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       borderRadius: { etiqueta: '16px' },

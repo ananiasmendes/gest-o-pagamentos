@@ -134,7 +134,7 @@ export function calcularMateriais(
 
 const fmt = (n: number, casas = 2) => n.toLocaleString('pt-BR', { maximumFractionDigits: casas });
 export const textoCompra = (q: number, ins: Insumo) => `${fmt(q, ins.multiplo ? 2 : 1)} ${ins.unidade_compra}`;
-export const textoConsumo = (q: number, ins: Insumo) => `${fmt(q, ins.unidade_consumo === 'un' ? 0 : 2)} ${ins.unidade_consumo}`;
+export const textoConsumo = (q: number, ins: Insumo) => `${fmt(q, ins.unidade_consumo === 'un' ? (q < 10 ? 1 : 0) : 2)} ${ins.unidade_consumo}`;
 
 // ---------------- Etiquetas -----------------------------------------------
 
@@ -227,4 +227,106 @@ export function calcularRetornos(cortes: Corte[], cms: CorteModelo[], ccs: Corte
     }
   }
   return { porCorte: res, prazoMedioDias: pecasComPrazo ? somaDias / pecasComPrazo : null };
+}
+
+// ---------------- Ordem de produção ---------------------------------------
+
+export interface ItemOrdem {
+  insumo: Insumo;
+  /** consumo por peça (unidade de consumo); para o tecido rateado pelo risco, a média resultante */
+  porPeca: number;
+  /** consumo total do modelo, por cor e somado */
+  porCor: Map<string, number>;
+  total: number;
+  peloRisco: boolean;
+}
+export interface LinhaOrdem {
+  modelo_id: string;
+  oficina_id: string | null;
+  grade: Grade;
+  porTam: Record<string, number>;
+  porCor: Map<string, number>;
+  total: number;
+  materiais: ItemOrdem[];
+  semFicha: boolean;
+}
+
+/**
+ * Ordem de produção: para cada modelo do corte, as peças e o material que ele consome (ficha técnica × peças).
+ * Quando o tecido é calculado pelo risco, o total do risco é dividido entre os modelos na proporção do
+ * consumo da ficha (ou das peças, se o modelo não tiver esse tecido na ficha).
+ */
+export function calcularOrdemProducao(
+  corte: Corte, cms: CorteModelo[], ccs: CorteCor[], ficha: FichaItem[], insumos: Insumo[], pecas: Pecas,
+): LinhaOrdem[] {
+  const ins = new Map(insumos.map((i) => [i.id, i]));
+  const kgFolha = kgPorFolhaDoRisco(corte);
+  const tecidoRisco = kgFolha !== null && corte.tecido_insumo_id ? corte.tecido_insumo_id : null;
+
+  // peso de cada modelo no rateio do tecido do risco, por cor
+  const pesoRisco = new Map<string, Map<string, number>>();
+  if (tecidoRisco) {
+    // modelo sem esse tecido na ficha entra com o consumo médio dos outros modelos do corte
+    const consumos = cms.map((m) => ficha.find((x) => x.modelo_id === m.modelo_id && x.insumo_id === tecidoRisco)?.consumo)
+      .filter((v): v is number => v !== undefined && v > 0);
+    const medio = consumos.length ? consumos.reduce((a, b) => a + b, 0) / consumos.length : 1;
+    for (const m of cms) {
+      const pm = pecas.porModelo.get(m.modelo_id);
+      const f = ficha.find((x) => x.modelo_id === m.modelo_id && x.insumo_id === tecidoRisco);
+      pesoRisco.set(m.modelo_id, new Map(ccs.map((c) => [c.cor_id, (pm?.porCor.get(c.cor_id) ?? 0) * (f?.consumo || medio)])));
+    }
+  }
+  const somaPesoCor = (cor: string) => Array.from(pesoRisco.values()).reduce((s, m) => s + (m.get(cor) ?? 0), 0);
+
+  return cms.map((m) => {
+    const pm = pecas.porModelo.get(m.modelo_id);
+    const total = pm?.total ?? 0;
+    const porCorPecas = pm?.porCor ?? new Map<string, number>();
+    const itens: ItemOrdem[] = [];
+    const daFicha = ficha.filter((f) => f.modelo_id === m.modelo_id);
+    for (const f of daFicha) {
+      const insumo = ins.get(f.insumo_id);
+      if (!insumo || insumo.categoria === 'M.O' || f.insumo_id === tecidoRisco) continue;
+      const porCor = new Map(ccs.map((c) => [c.cor_id, f.consumo * (porCorPecas.get(c.cor_id) ?? 0)]));
+      itens.push({ insumo, porPeca: f.consumo, porCor, total: f.consumo * total, peloRisco: false });
+    }
+    if (tecidoRisco && ins.get(tecidoRisco) && total > 0) {
+      const porCor = new Map(ccs.map((c) => {
+        const soma = somaPesoCor(c.cor_id);
+        const parte = soma ? (pesoRisco.get(m.modelo_id)?.get(c.cor_id) ?? 0) / soma : 0;
+        return [c.cor_id, kgFolha! * (c.folhas || 0) * parte];
+      }));
+      const t = Array.from(porCor.values()).reduce((s, v) => s + v, 0);
+      itens.push({ insumo: ins.get(tecidoRisco)!, porPeca: t / total, porCor, total: t, peloRisco: true });
+    }
+    itens.sort((a, b) => Number(b.peloRisco) - Number(a.peloRisco) || a.insumo.nome.localeCompare(b.insumo.nome, 'pt-BR'));
+    return {
+      modelo_id: m.modelo_id, oficina_id: m.oficina_id, grade: m.grade,
+      porTam: pm?.porTam ?? {}, porCor: porCorPecas, total, materiais: itens, semFicha: daFicha.length === 0,
+    };
+  });
+}
+
+// ---------------- Em produção (todos os cortes em andamento) ----------------
+
+export interface EmProducao {
+  modelo_id: string; oficina_id: string | null; corte_id: string; tam: string;
+  cortado: number; recebido: number; falta: number;
+}
+
+/** Peças cortadas ainda com as oficinas: uma linha por corte × modelo × tamanho, já descontado o que voltou. */
+export function pecasEmProducao(cortes: Corte[], cms: CorteModelo[], ccs: CorteCor[], entradas: Entrada[]): EmProducao[] {
+  const ret = calcularRetornos(cortes, cms, ccs, entradas).porCorte;
+  const out: EmProducao[] = [];
+  for (const c of cortes) {
+    if (c.status !== 'cortado' && c.status !== 'enviado') continue;
+    const r = ret.get(c.id);
+    if (!r) continue;
+    for (const m of cms.filter((x) => x.corte_id === c.id)) {
+      for (const [tam, [esp, rec]] of Object.entries(r.detalhe.get(m.modelo_id) ?? {})) {
+        out.push({ modelo_id: m.modelo_id, oficina_id: m.oficina_id, corte_id: c.id, tam, cortado: esp, recebido: rec, falta: Math.max(0, esp - rec) });
+      }
+    }
+  }
+  return out;
 }
