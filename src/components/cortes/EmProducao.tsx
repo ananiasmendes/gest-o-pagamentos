@@ -40,7 +40,7 @@ export default function EmProducao() {
   // agregações
   const porModelo = new Map<string, { total: number; cortado: number; recebido: number; porOf: Map<string | null, number>; porTam: Record<string, number>; cortes: Set<string> }>();
   for (const l of filtradas) {
-    const a = porModelo.get(l.modelo_id) ?? { total: 0, cortado: 0, recebido: 0, porOf: new Map(), porTam: {}, cortes: new Set<string>() };
+    const a = porModelo.get(l.modelo_id) ?? { total: 0, cortado: 0, recebido: 0, porOf: new Map<string | null, number>(), porTam: {} as Record<string, number>, cortes: new Set<string>() };
     a.cortado += l.cortado; a.recebido += l.recebido;
     const v = valor(l);
     if (v > 0) {
